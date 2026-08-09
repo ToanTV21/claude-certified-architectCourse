@@ -2,12 +2,12 @@
 
 ## Lessons trong section này
 - [x] Prompt evaluation
-- [x] A typical eval workflow
-- [x] Generating test datasets
-- [x] Running the eval
-- [x] Model based grading
-- [x] Code based grading
-- [x] Exercise on prompt evals
+- [ ] A typical eval workflow
+- [ ] Generating test datasets
+- [ ] Running the eval
+- [ ] Model based grading
+- [ ] Code based grading
+- [ ] Exercise on prompt evals
 - [ ] Quiz on prompt evaluation
 
 ## Key Concepts
