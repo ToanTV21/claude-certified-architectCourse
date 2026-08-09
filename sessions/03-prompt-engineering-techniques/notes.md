@@ -2,8 +2,8 @@
 
 ## Lessons trong section này
 - [x] Prompt engineering
-- [ ] Being clear and direct
-- [ ] Being specific
+- [x] Being clear and direct
+- [x] Being specific
 - [ ] Structure with XML tags
 - [ ] Providing examples
 - [ ] Exercise on prompting
@@ -44,6 +44,44 @@
   điểm rất thấp — vd **2.32/10** trong ví dụ của khóa học, đặc biệt tệ hơn khi dùng model kém mạnh
   hơn (haiku so với sonnet/opus). Đây là baseline để so sánh sau khi áp dụng từng kỹ thuật.
 
+### Being Clear and Direct
+- **Being Clear and Direct** = kỹ thuật đầu tiên và cơ bản nhất trong prompt engineering: dùng ngôn
+  ngữ đơn giản, trực tiếp, với **action verb** (động từ hành động: "Write", "Identify", "Generate"...)
+  ngay ở **dòng đầu tiên** của prompt để nêu rõ chính xác task cần làm.
+- **Tại sao dòng đầu quan trọng nhất**: dòng đầu tiên đặt nền tảng (foundation) cho toàn bộ cách model
+  hiểu và tiếp cận phần còn lại của prompt. Nếu dòng đầu mơ hồ, model dễ hiểu sai ý định dù các dòng
+  sau có chi tiết đến đâu.
+- **Cấu trúc chuẩn**: `Action verb + mô tả task rõ ràng + yêu cầu output cụ thể`. Ví dụ:
+  - "Write three paragraphs about how solar panels work"
+  - "Identify three countries that use geothermal energy and for each include generation stats"
+  - "Generate a one day meal plan for an athlete that meets their dietary restrictions"
+- **So với baseline (Exercise 02)**: baseline chỉ liệt kê thông tin rồi nói chung chung "Help with a
+  meal plan" — không có action verb rõ ràng, không nói output cần bao gồm gì. Áp dụng kỹ thuật này
+  nghĩa là đổi thành: "**Generate** a one-day meal plan for an athlete based on the information below,
+  ensuring it meets their dietary restrictions."
+- **Kết quả trong khóa học**: chỉ riêng kỹ thuật này đã giúp điểm eval tăng từ **2.32 → 3.92** — cải
+  thiện đáng kể dù chỉ sửa 1 câu đầu tiên, cho thấy tầm quan trọng của rõ ràng + trực tiếp.
+
+### Being Specific
+- **Being Specific** = kỹ thuật bổ sung **guideline** (hướng dẫn cụ thể) hoặc **step** (các bước) vào
+  prompt để định hướng output theo đúng ý muốn, thay vì để model tự suy đoán.
+- Có **2 loại guideline**, thường dùng kết hợp:
+  - **Type A — Attributes (thuộc tính)**: liệt kê các đặc điểm/thuộc tính mong muốn của output (độ
+    dài, cấu trúc, format...). Vd: "Mỗi bữa ăn phải có tên món, danh sách nguyên liệu, và lượng calo
+    ước tính. Trình bày dưới dạng danh sách có 3 bữa: sáng, trưa, tối."
+  - **Type B — Steps (các bước)**: đưa ra các bước cụ thể để model *suy luận* theo, giúp model cân
+    nhắc góc nhìn/khía cạnh mà nó có thể bỏ sót nếu không được hướng dẫn. Vd: "Trước tiên tính nhu cầu
+    calo hàng ngày dựa trên chiều cao/cân nặng/mục tiêu, sau đó phân bổ calo cho 3 bữa, cuối cùng chọn
+    món ăn phù hợp với dietary restrictions."
+- **Khi nào dùng loại nào**:
+  - Type A (attributes) → khuyến nghị dùng cho **hầu hết mọi prompt**, vì luôn cần kiểm soát hình thức
+    output.
+  - Type B (steps) → chỉ cần cho **bài toán phức tạp**, khi muốn model xem xét nhiều góc độ hơn bình
+    thường nó sẽ tự làm (vd tính toán dinh dưỡng nhiều bước như trên).
+- **Kết quả trong khóa học**: sau khi thêm guideline (kết hợp cả Type A và Type B) vào prompt đã "clear
+  and direct" từ bước trước, điểm eval nhảy từ **3.92 → 7.86** — mức cải thiện lớn nhất trong 2 kỹ
+  thuật đã học, cho thấy "cụ thể hóa" tác động mạnh hơn cả việc chỉ "rõ ràng".
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -58,6 +96,10 @@
   hiệu model bị lỗi. Mục tiêu của module là chứng minh từng kỹ thuật giúp tăng điểm dần dần.
 - [ ] Model yếu hơn (Haiku) sẽ cho điểm thấp hơn với cùng 1 prompt so với model mạnh hơn (Sonnet/Opus)
   — cần cân nhắc chọn model phù hợp khi đánh giá "prompt đã đủ tốt chưa".
+- [ ] Dòng đầu tiên (first line) của prompt quan trọng hơn phần còn lại — luôn bắt đầu bằng action verb
+  rõ ràng thay vì mô tả bối cảnh lan man trước.
+- [ ] Type B (steps) không phải lúc nào cũng cần — dùng thừa cho task đơn giản có thể khiến prompt dài
+  dòng không cần thiết mà không cải thiện điểm số tương xứng. Chỉ dùng khi task thực sự phức tạp.
 
 ## CCA-F Exam Tips
 - Phân biệt rõ **Prompt Evaluation** (đo/objective scoring) vs **Prompt Engineering** (kỹ thuật sửa
