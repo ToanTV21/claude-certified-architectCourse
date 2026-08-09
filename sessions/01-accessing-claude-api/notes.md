@@ -11,8 +11,8 @@
 - [x] Temperature
 - [ ] Course satisfaction survey
 - [ ] Response streaming
-- [ ] Structured data
-- [ ] Structured data exercise
+- [x] Structured data
+- [x] Structured data exercise
 - [ ] Quiz on accessing Claude with the API
 
 ## Key Concepts
@@ -252,6 +252,65 @@ answer = chat(messages, temperature=1.0)
 
 **Bài tập thực hành:** xem [`exercises/temperature_exercise.py`](exercises/temperature_exercise.py) — so sánh output ở `temperature=0.0` vs `temperature=1.0` khi generate ý tưởng phim, gọi lặp lại nhiều lần ở mỗi mức để quan sát độ lặp/đa dạng.
 
+### Structured data — bắt Claude trả về JSON/dữ liệu "sạch", không kèm text thừa
+
+**Vấn đề:** khi yêu cầu Claude generate structured data (JSON, code, bulleted list...), mặc định Claude có xu hướng "helpful" quá mức — bọc thêm markdown code block (` ```json ... ``` `) và/hoặc thêm câu giải thích trước/sau. Ví dụ build web app generate AWS EventBridge rule: user nhập mô tả, bấm generate, kỳ vọng thấy JSON sạch để copy dùng ngay. Nếu Claude trả về:
+
+```
+```json
+{
+  "source": ["aws.ec2"],
+  "detail-type": ["EC2 Instance State-change Notification"],
+  "detail": { "state": ["running"] }
+}
+```
+
+This rule captures EC2 instance state changes when instances start running.
+```
+
+→ JSON đúng, nhưng user phải tự tay chọn lọc phần JSON ra khỏi câu chữ + dấu ``` bao quanh — gây khó chịu khi tích hợp vào app thực tế (không thể `json.loads()` thẳng response).
+
+**Giải pháp: kết hợp Assistant Message Prefilling + Stop Sequences**
+
+Kỹ thuật này hoạt động dựa trên 2 cơ chế:
+- **Assistant message prefilling** — thay vì chỉ gửi `user` message rồi đợi Claude tự bắt đầu response từ đầu, mình append thêm 1 `assistant` message với nội dung soạn sẵn (vd `"```json"`). Claude sẽ nghĩ nó đã tự viết phần mở đầu đó rồi, và sẽ generate **tiếp nối** từ đó — tức là viết thẳng vào phần nội dung JSON, bỏ qua hẳn câu dẫn/giải thích ở đầu
+- **Stop sequences** — truyền `stop_sequences=["```"]` vào request. Ngay khi Claude định gõ ra chuỗi ` ``` ` (để đóng code block, theo thói quen mặc định), generation dừng lại **ngay lập tức** — cắt trước khi Claude kịp viết dấu đóng ``` và bất kỳ câu giải thích nào phía sau
+
+```python
+messages = []
+
+add_user_message(messages, "Generate a very short event bridge rule as json")
+add_assistant_message(messages, "```json")  # prefill: giả vờ đã mở code block
+
+text = chat(messages, stop_sequences=["```"])  # dừng ngay khi gặp ```
+```
+
+**Luồng hoạt động (4 bước):**
+1. User message nói Claude cần generate gì
+2. Assistant message được prefill khiến Claude nghĩ nó **đã bắt đầu** viết 1 markdown code block
+3. Claude tiếp tục viết — nhưng vì "đã mở" code block rồi, nó viết thẳng nội dung JSON, không lặp lại câu dẫn/giải thích
+4. Khi Claude định đóng code block bằng ` ``` `, stop sequence khớp → generation dừng ngay
+
+**Kết quả:** response trả về là JSON thuần, sạch — copy dùng được ngay, không cần regex/string-strip để bóc tách khỏi markdown.
+
+**Xử lý response sau khi nhận về:**
+```python
+import json
+
+# Claude có thể để lại vài ký tự newline thừa ở đầu/cuối -> strip() trước khi parse
+clean_json = json.loads(text.strip())
+```
+
+**Kỹ thuật này không chỉ dùng cho JSON** — áp dụng được cho bất kỳ structured content nào mà Claude có xu hướng tự bọc thêm định dạng:
+- Code snippets (Python, JS...) — Claude hay bọc trong ` ```python ... ``` `
+- Bulleted/numbered list
+- CSV data
+- Bất kỳ format nào mà mình biết trước Claude "muốn" bọc bằng ký hiệu gì
+
+**Chìa khóa để áp dụng:** xác định Claude tự nhiên muốn bọc content bằng gì (với code/JSON thường là markdown code block ` ``` `), rồi dùng chính ký hiệu mở đó làm prefill, và ký hiệu đóng làm stop sequence.
+
+**Bài tập thực hành:** xem [`exercises/03_structured_data_exercise.py`](exercises/03_structured_data_exercise.py) — so sánh trực tiếp 2 cách: (1) yêu cầu suông không prefill → Claude trả JSON kèm ``` + giải thích, `json.loads()` fail; (2) dùng prefill `"```json"` + `stop_sequences=["```"]` → JSON thuần, parse thành công ngay.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -272,6 +331,7 @@ answer = chat(messages, temperature=1.0)
 - [ ] `tool_choice` để force gọi tool cụ thể: `{"type": "tool", "name": "..."}`, không phải `{"type": "auto"}`
 - [ ] `stop_reason` trong response cần được handle khác nhau tuỳ giá trị (`end_turn`, `max_tokens`, `stop_sequence`, `tool_use`)
 - [ ] API là stateless — Claude không tự nhớ hội thoại, phải tự gửi lại full `messages` history mỗi request nếu muốn multi-turn
+- [ ] Muốn structured output (JSON/code) sạch, không kèm markdown/giải thích: dùng assistant message prefilling (vd `"```json"`) kết hợp `stop_sequences=["```"]`, không chỉ dựa vào prompt suông
 
 ## Code Snippets
 ```python
