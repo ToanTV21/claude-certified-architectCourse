@@ -128,6 +128,12 @@ Khi làm việc trong project này, Claude Code nên:
 6. **Sau khi làm xong bài tập** cập nhật status trong CLAUDE.md
 6b. **Sau mỗi lần write/edit file** phải `git add` + `git commit` (message ngắn gọn mô tả thay đổi) rồi `git push` lên remote GitHub ngay, không gộp nhiều thay đổi rồi mới commit 1 lần
 7. **Ngôn ngữ giải thích:** khi note lại nội dung học (notes.md, giải thích concept, mô tả trong chat), luôn viết phần giải thích bằng **tiếng Việt**. Các keyword/thuật ngữ kỹ thuật (tên API, param, class, method, tên field, tên sự kiện...) giữ nguyên **tiếng Anh**, không dịch. Vd: "**Tokenization** là bước cắt input text thành các **token** nhỏ" — không viết "Token hoá" hay dịch "token" sang tiếng Việt.
+8. **Khi user yêu cầu "giải thích chi tiết code"** (vd bài tập vừa viết, đoạn code Python trong exercises/), áp dụng đúng format sau:
+   - Explain theo **từng đoạn code ngắn** (1 block nhỏ mỗi lần — vd 1 dòng khai báo hàm, 1 vòng lặp, 1 câu lệnh điều kiện), không giải thích dồn cả hàm/file trong 1 đoạn văn dài
+   - Với mỗi đoạn: trích lại code block đó trước, rồi giải thích ý nghĩa từng phần/cú pháp bên dưới
+   - **User là Senior Android Automotive Engineer, code chính là Java** — nên khi giải thích cú pháp Python lạ (type hints, dict unpacking `**kwargs`, list comprehension, decorator, context manager, `async/await`...), nếu có khái niệm tương đương hoặc gần giống trong **Java/Android/Android Automotive (AAOS)** thì nên đối chiếu ngắn gọn để dễ liên tưởng (vd: Python dict ~ Java `HashMap`/JSON object; Python `**kwargs` unpack ~ Java Builder pattern hoặc varargs; Python `None` ~ Java `null`; Python list ~ Java `List`/`ArrayList`). Không bắt buộc ví dụ Java cho mọi dòng — chỉ dùng khi thực sự giúp hiểu nhanh hơn, tránh gượng ép
+   - Kết thúc bằng phần **"Tóm tắt luồng chạy"** ngắn gọn, liệt kê các bước theo thứ tự
+   - Nếu file đích là 1 bài tập trong `exercises/`, lưu toàn bộ phần giải thích này vào file `.md` riêng cùng cấp, đặt tên theo pattern `<tên_file_exercise>_notes.md` (vd `02_system_prompts_exercise.py` → `02_system_prompts_exercise_notes.md`), rồi git add/commit/push theo rule 6b
 ---
 ## Note-Taking Template
 Mỗi `notes.md` trong `sessions/NN-ten-session/` theo cấu trúc:
