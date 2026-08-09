@@ -5,8 +5,8 @@
 - [x] A typical eval workflow
 - [x] Generating test datasets
 - [x] Running the eval
-- [ ] Model based grading
-- [ ] Code based grading
+- [x] Model based grading
+- [x] Code based grading
 - [ ] Exercise on prompt evals
 - [ ] Quiz on prompt evaluation
 
@@ -233,6 +233,76 @@ Khi tiêu chí đánh giá mang tính chủ quan / khó check bằng code thuầ
 
 Trong thực tế, 1 eval pipeline tốt thường **kết hợp cả 2** — dùng code-based cho các check nhanh/rõ ràng, và model-based cho các tiêu chí cần đánh giá chất lượng ngữ nghĩa.
 
+#### Ví dụ đầy đủ: lắp grader thật vào eval "viết code AWS"
+Nối tiếp pipeline đã xây ở [Running the eval](#running-the-eval--xây-pipeline-eval-lõi-core-evaluation-pipeline) (score đang hardcode = 10), giờ thay bằng grading logic thật — xem code chạy được ở [`exercises/05_code_and_model_grading_exercise.py`](exercises/05_code_and_model_grading_exercise.py). Prompt đang eval trả về 1 trong 3 dạng output: Python function / JSON config / Regex, nên 2 tiêu chí đánh giá chính là:
+
+- **Format & Valid Syntax** (code-based) — output có parse được đúng như định dạng khai báo không
+- **Task Following** (model-based) — output có thật sự giải quyết đúng yêu cầu, chính xác không
+
+**1. Dataset cần thêm field `"format"`** để code grader biết dùng validator nào:
+```json
+{
+    "task": "Create a Python function to validate an AWS IAM username",
+    "format": "python"
+}
+```
+
+**2. Syntax validator — mỗi format 1 hàm, chỉ thử parse rồi trả 10/0:**
+```python
+def validate_json(text):
+    try:
+        json.loads(text.strip())
+        return 10
+    except json.JSONDecodeError:
+        return 0
+
+def validate_python(text):
+    try:
+        ast.parse(text.strip())
+        return 10
+    except SyntaxError:
+        return 0
+
+def validate_regex(text):
+    try:
+        re.compile(text.strip())
+        return 10
+    except re.error:
+        return 0
+```
+`grade_syntax(output, test_case)` chỉ cần tra `test_case["format"]` rồi gọi đúng validator tương ứng.
+
+**3. Siết lại prompt under test** để output "sạch" — dễ parse hơn cho code grader:
+```
+- Respond only with Python, JSON, or a plain Regex
+- Do not add any comments or commentary or explanation
+```
+Kèm prefill `add_assistant_message(messages, "```code")` — không cần biết trước output là loại gì, Claude vẫn tự viết đúng nội dung vào code block.
+
+**4. Model grader `grade_by_model`** — chấm riêng tiêu chí Task Following, bắt buộc trả kèm `strengths`/`weaknesses`/`reasoning` trước khi cho `score`. **Insight quan trọng:** nếu chỉ hỏi mỗi con số score mà không yêu cầu giải thích, model có xu hướng chấm "an toàn" quanh mức 6/10 (middling score) — bắt giải thích lý do trước giúp điểm phản ánh đúng chất lượng thật hơn nhiều.
+
+**5. Gộp điểm** — trung bình cộng đơn giản giữa 2 grader:
+```python
+model_grade = grade_by_model(test_case, output)
+model_score = model_grade["score"]
+syntax_score = grade_syntax(output, test_case)
+
+score = (model_score + syntax_score) / 2
+```
+Trọng số 50/50 chỉ là điểm khởi đầu — có thể chỉnh lệch trọng số tuỳ mức độ quan trọng của từng tiêu chí trong use case thực tế (vd ưu tiên syntax hơn nếu code sẽ chạy trực tiếp, không qua review).
+
+**6. Chạy eval + lấy điểm trung bình toàn dataset** bằng `statistics.mean`:
+```python
+from statistics import mean
+
+def run_eval(dataset):
+    results = [run_test_case(tc) for tc in dataset]
+    average_score = mean(r["score"] for r in results)
+    print(f"Average score: {average_score}")
+    return results
+```
+→ Điểm trung bình này chính là baseline để đo cải thiện khi tiếp tục tinh chỉnh prompt — bản thân con số không quan trọng bằng việc **nó có tăng lên khi mình sửa prompt hay không**.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -247,6 +317,8 @@ Trong thực tế, 1 eval pipeline tốt thường **kết hợp cả 2** — d�
 - [ ] Model-based grading tốn thêm API call cho mỗi test case → cân nhắc chi phí khi dataset lớn hoặc chạy thường xuyên (CI)
 - [ ] Grader (model-based) cũng có thể không nhất quán giữa các lần chạy — cần structured output (prefill + stop_sequences) để parse kết quả ổn định, tránh grader trả JSON kèm giải thích thừa
 - [ ] 1 test case lỗi API không nên làm dừng cả vòng lặp eval — bắt exception riêng cho từng case
+- [ ] Model grader chỉ hỏi mỗi "score" (không yêu cầu giải thích) dễ bị chấm "an toàn" quanh mức 6/10 — luôn bắt trả kèm strengths/weaknesses/reasoning trước score
+- [ ] Dataset dùng cho code-based grading cần có field `"format"` (python/json/regex) để biết dùng validator nào — thiếu field này thì `grade_syntax` không dispatch được
 
 ## Code Snippets
 
