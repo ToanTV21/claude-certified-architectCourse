@@ -4,7 +4,7 @@
 - [x] Prompt evaluation
 - [x] A typical eval workflow
 - [x] Generating test datasets
-- [ ] Running the eval
+- [x] Running the eval
 - [ ] Model based grading
 - [ ] Code based grading
 - [ ] Exercise on prompt evals
@@ -135,8 +135,73 @@ Please provide a solution to the following task:
 
 → Kết quả: 1 dataset gồm N object `{"task": "..."}` bao phủ đa dạng cả 3 loại output (Python/JSON/Regex) cho domain AWS, sẵn sàng đưa vào bước 3 (Feed Through Claude) của eval workflow.
 
-### Running the eval — chạy prompt trên toàn bộ dataset
-Bước này đơn giản là 1 vòng lặp: với mỗi test case trong dataset, gọi `client.messages.create()` với prompt under test, lưu lại output để chấm điểm ở bước sau. Cần xử lý cả trường hợp API lỗi (timeout, rate limit...) cho từng case riêng lẻ, không để 1 case lỗi làm dừng cả vòng lặp.
+### Running the eval — xây pipeline eval lõi (core evaluation pipeline)
+Sau khi có dataset ([Generating test datasets](#generating-test-datasets--tạo-tập-dữ-liệu-test)), bước tiếp theo là xây **eval pipeline**: lấy từng test case, merge với prompt, đưa qua Claude, rồi chấm điểm kết quả. Pipeline này gồm **3 hàm chính**, mỗi hàm 1 trách nhiệm riêng — xem code chạy được ở [`exercises/04_run_eval_exercise.py`](exercises/04_run_eval_exercise.py).
+
+**1. `run_prompt(test_case)`** — hàm đơn giản nhất: merge prompt template với `test_case["task"]`, gửi cho Claude, trả về output.
+```python
+def run_prompt(test_case):
+    """Merges the prompt and test case input, then returns the result"""
+    prompt = f"""
+Please solve the following task:
+
+{test_case["task"]}
+"""
+    messages = []
+    add_user_message(messages, prompt)
+    output = chat(messages)
+    return output
+```
+Ở giai đoạn này, prompt vẫn cố tình để **cực kỳ đơn giản** — chưa có formatting instruction nào, nên Claude sẽ trả lời khá **verbose** (dài dòng, kèm giải thích thừa). Đây là điều sẽ tinh chỉnh dần khi iterate prompt ở các bước sau, không sửa ngay ở bước này.
+
+**2. `run_test_case(test_case)`** — điều phối chạy 1 test case: gọi `run_prompt()` rồi chấm điểm.
+```python
+def run_test_case(test_case):
+    """Calls run_prompt, then grades the result"""
+    output = run_prompt(test_case)
+
+    # TODO - Grading
+    score = 10
+
+    return {
+        "output": output,
+        "test_case": test_case,
+        "score": score,
+    }
+```
+Ở bước này, `score` tạm để **hardcode = 10** — grading logic thật (code-based/model-based đã note ở trên) sẽ được lắp vào sau. Giá trị hardcode chỉ để test thông suốt cả pipeline trước, tách riêng việc "chạy được pipeline" khỏi việc "chấm điểm đúng".
+
+**3. `run_eval(dataset)`** — điều phối toàn bộ quá trình eval: lặp qua dataset, gọi `run_test_case()` cho từng case, gom kết quả.
+```python
+def run_eval(dataset):
+    """Loads the dataset and calls run_test_case with each case"""
+    results = []
+    for test_case in dataset:
+        result = run_test_case(test_case)
+        results.append(result)
+    return results
+```
+
+**Chạy pipeline:** load `dataset.json` đã sinh ra ở bước trước, rồi gọi `run_eval()`:
+```python
+with open("dataset.json", "r") as f:
+    dataset = json.load(f)
+
+results = run_eval(dataset)
+```
+Lần chạy đầu tiên sẽ mất khá lâu — dù dùng Claude Haiku, xử lý hết 1 dataset đầy đủ có thể mất khoảng **~30 giây** (do gọi API tuần tự, từng case một). Kỹ thuật tối ưu tốc độ (song song hoá request...) sẽ học ở phần sau.
+
+**Đọc kết quả:** `run_eval()` trả về 1 JSON array có cấu trúc, mỗi object ứng với 1 test case, gồm 3 field:
+- `output` — response đầy đủ Claude trả về
+- `test_case` — test case gốc đã dùng để chạy
+- `score` — điểm eval (hiện đang hardcode = 10)
+
+```python
+print(json.dumps(results, indent=2))
+```
+Nhìn output thực tế sẽ thấy Claude trả lời khá dài dòng — đúng như dự đoán, vì prompt chưa có formatting instruction cụ thể. Đây chính là loại vấn đề sẽ xử lý khi tinh chỉnh (refine) prompt ở bước sau.
+
+**Tổng kết:** pipeline 3 hàm (`run_prompt` → `run_test_case` → `run_eval`) này là **nền tảng của phần lớn eval system trong thực tế** — nhìn đơn giản nhưng đã bao phủ hầu hết luồng chạy cốt lõi. Phần còn thiếu duy nhất là **grading system thật** (thay `score = 10` hardcode bằng logic chấm điểm thật) — đây sẽ là trọng tâm của phần tiếp theo: **Graders**.
 
 ### Code based grading — chấm điểm bằng logic code thuần
 Dùng code (không cần gọi thêm LLM) để kiểm tra output có đạt tiêu chí không. Phù hợp khi tiêu chí đúng/sai rõ ràng, có thể check bằng logic:
