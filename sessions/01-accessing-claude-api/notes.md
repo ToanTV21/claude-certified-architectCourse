@@ -6,8 +6,8 @@
 - [x] Making a request
 - [x] Multi-Turn conversations
 - [ ] Chat exercise
-- [ ] System prompts
-- [ ] System prompts exercise
+- [x] System prompts
+- [x] System prompts exercise
 - [ ] Temperature
 - [ ] Course satisfaction survey
 - [ ] Response streaming
@@ -132,6 +132,76 @@ add_assistant_message(messages, answer)   # lưu response của Claude vào hist
 add_user_message(messages, "Write another sentence")
 final_answer = chat(messages)             # gửi full history → Claude hiểu ngữ cảnh
 ```
+
+### System prompts — định hình cách Claude trả lời
+System prompt là một cách mạnh để customize cách Claude phản hồi: thay vì câu trả lời generic, có thể shape **tone**, **style**, và **approach** của Claude cho đúng use case cụ thể.
+
+**Vì sao cần system prompt** — ví dụ xây chatbot gia sư toán. Khi học sinh hỏi "How do I solve 5x + 2 = 3 for x?", mình muốn Claude hành xử như 1 gia sư thật, không phải chỉ nhả ra đáp án. Một gia sư toán tốt nên:
+- Ban đầu đưa gợi ý (hints) thay vì lời giải hoàn chỉnh
+- Kiên nhẫn dẫn dắt học sinh qua từng bước
+- Cho xem lời giải của bài tương tự làm ví dụ
+
+Và **không nên**:
+- Trả lời trực tiếp ngay lập tức
+- Bảo học sinh "cứ dùng máy tính đi"
+
+**Cách hoạt động:**
+- System prompt định nghĩa dưới dạng plain string, truyền vào `client.messages.create()` qua param **top-level** `system` (không nằm trong `messages`)
+- Claude sẽ cố gắng trả lời đúng theo role được mô tả trong system prompt
+- Giúp Claude bám sát nhiệm vụ (on task), không lạc đề
+
+```python
+system_prompt = """
+You are a patient math tutor.
+Do not directly answer a student's questions.
+Guide them to a solution step by step.
+"""
+
+client.messages.create(
+    model=model,
+    messages=messages,
+    max_tokens=1000,
+    system=system_prompt
+)
+```
+
+**So sánh có/không có system prompt:**
+- Không có system prompt → Claude đưa lời giải đầy đủ từng bước ngay lập tức. Có thể hữu ích, nhưng không khuyến khích học sinh tự suy nghĩ
+- Có system prompt "math tutor" → Claude đổi hẳn cách trả lời: thay vì lời giải hoàn chỉnh, Claude hỏi ngược lại kiểu gợi mở, vd "What do you think would be a good first step to isolate x? Consider what operation we might need to perform on both sides to start moving terms around."
+
+**Xây hàm chat() linh hoạt, nhận system prompt như 1 param tùy chọn** (thay vì hardcode):
+```python
+def chat(messages, system=None):
+    params = {
+        "model": model,
+        "max_tokens": 1000,
+        "messages": messages,
+    }
+
+    if system:
+        params["system"] = system
+
+    message = client.messages.create(**params)
+    return message.content[0].text
+```
+
+Điểm quan trọng cần nhớ: **API của Claude không chấp nhận `system=None`** — nếu truyền `system=None` trực tiếp sẽ bị validation error. Vì vậy phải conditionally thêm field `system` vào params, chỉ khi thực sự có giá trị truyền vào.
+
+**Cách gọi:**
+```python
+# Không có system prompt
+answer = chat(messages)
+
+# Có system prompt
+system = """
+You are a patient math tutor.
+Do not directly answer a student's questions.
+Guide them to a solution step by step.
+"""
+answer = chat(messages, system=system)
+```
+
+System prompt là yếu tố then chốt để xây dựng AI application có hành vi nhất quán và phù hợp với mục đích sử dụng — biến câu trả lời AI generic thành tương tác chuyên biệt, đúng vai trò (role-appropriate).
 
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
