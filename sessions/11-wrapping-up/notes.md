@@ -1,0 +1,9 @@
+# Session 11: Wrapping Up
+
+## Lessons trong section này
+- [ ] Course Wrap Up
+
+## Tổng kết
+- Điều học được quan trọng nhất: ...
+- Điều cần ôn thêm cho CCA-F: ...
+- Next steps: ...
