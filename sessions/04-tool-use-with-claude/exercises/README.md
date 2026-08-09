@@ -6,3 +6,7 @@
   in a loop until Claude stops requesting tools.
 - `03_using_multiple_tools.py` — Give Claude more than one tool and let it choose
   (fine-grained tool calling).
+- `04_batch_tool.py` — Define a virtual "batch" tool so Claude can invoke multiple
+  real tools in a single message instead of sequential round-trips.
+- `05_structured_data_tool.py` — Force Claude to always call one tool via
+  `tool_choice` to reliably extract structured (JSON) data from free text.
