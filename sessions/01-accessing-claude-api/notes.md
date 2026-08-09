@@ -8,7 +8,7 @@
 - [ ] Chat exercise
 - [x] System prompts
 - [x] System prompts exercise
-- [ ] Temperature
+- [x] Temperature
 - [ ] Course satisfaction survey
 - [ ] Response streaming
 - [ ] Structured data
@@ -202,6 +202,55 @@ answer = chat(messages, system=system)
 ```
 
 System prompt là yếu tố then chốt để xây dựng AI application có hành vi nhất quán và phù hợp với mục đích sử dụng — biến câu trả lời AI generic thành tương tác chuyên biệt, đúng vai trò (role-appropriate).
+
+### Temperature — điều chỉnh độ "sáng tạo" của câu trả lời
+
+**Claude generate text qua 3 bước** (đơn giản hoá lại từ 4 giai đoạn ở trên), mỗi lần sinh ra 1 token:
+1. **Tokenization** — cắt input thành các token nhỏ
+2. **Prediction** — tính xác suất cho từng token có thể đứng tiếp theo (vd sau "What do you think" thì "about" có thể được gán 30%, "would" 20%, "of" 10%, v.v.)
+3. **Sampling** — chọn ngẫu nhiên 1 token dựa theo phân phối xác suất đó, rồi lặp lại toàn bộ quá trình cho token kế tiếp
+
+`temperature` là param **decimal từ 0 đến 1**, tác động trực tiếp lên bước Sampling — giống như "núm vặn độ sáng tạo" của Claude:
+- **Temperature gần 0** → gần như deterministic, Claude gần như luôn chọn token có xác suất cao nhất → kết quả ổn định, lặp lại giống nhau qua nhiều lần gọi
+- **Temperature gần 1** → xác suất được trải đều hơn giữa các token khả dĩ → kết quả đa dạng, sáng tạo hơn, nhưng kém ổn định/dự đoán được hơn
+
+**Lưu ý quan trọng:** temperature không *đảm bảo* output khác nhau — nó chỉ thay đổi *xác suất* để ra output khác nhau. Ngay cả ở temperature cao, Claude vẫn có thể thỉnh thoảng generate ra câu trả lời giống nhau.
+
+**Chọn temperature theo use case:**
+| Mức | Khoảng | Use case |
+|-----|--------|----------|
+| Thấp | `0.0 – 0.3` | Factual response, coding assistance, data extraction, content moderation |
+| Trung bình | `0.4 – 0.7` | Summarization, educational content, problem-solving, creative writing có ràng buộc |
+| Cao | `0.8 – 1.0` | Brainstorming, creative writing tự do, marketing content, tạo joke |
+
+**Thêm temperature vào hàm `chat()` đã có** (mở rộng từ hàm ở phần System prompts, xem [Session 01 exercises README](exercises/README.md)):
+```python
+def chat(messages, system=None, temperature=1.0):
+    params = {
+        "model": model,
+        "max_tokens": 1000,
+        "messages": messages,
+        "temperature": temperature,  # default 1.0, KHÔNG phải 0.7 (dễ nhầm với OpenAI)
+    }
+
+    if system:
+        params["system"] = system
+
+    message = client.messages.create(**params)
+    return message.content[0].text
+```
+
+**Test hiệu ứng temperature** — vd generate ý tưởng phim:
+```python
+# Temperature thấp -> kết quả ổn định, dự đoán được
+answer = chat(messages, temperature=0.0)
+
+# Temperature cao -> kết quả đa dạng, sáng tạo hơn
+answer = chat(messages, temperature=1.0)
+```
+Ở `temperature=0.0`, gọi lặp lại nhiều lần thường ra câu trả lời gần như giống hệt nhau (vd luôn xoay quanh 1 ý tưởng: "nhà khảo cổ du hành thời gian ngăn cổ vật bị đánh cắp"). Ở `temperature=1.0`, mỗi lần gọi sẽ cho theme/nhân vật/cốt truyện khác nhau rõ rệt.
+
+**Bài tập thực hành:** xem [`exercises/temperature_exercise.py`](exercises/temperature_exercise.py) — so sánh output ở `temperature=0.0` vs `temperature=1.0` khi generate ý tưởng phim, gọi lặp lại nhiều lần ở mỗi mức để quan sát độ lặp/đa dạng.
 
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
