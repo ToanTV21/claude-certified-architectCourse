@@ -18,6 +18,17 @@
 - **Cấu trúc của module này**: bắt đầu từ 1 prompt ban đầu còn kém → áp dụng từng kỹ thuật prompt
   engineering một (clear & direct → specific → XML tags → examples) → chạy lại eval pipeline sau
   mỗi bước để đo mức cải thiện → quan sát điểm số tăng dần theo thời gian.
+- **Prompt Engineering Cycle** = quy trình lặp lại (cụ thể hoá "A Typical Eval Workflow" ở session 02)
+  gồm 5 bước, trong đó 2 bước cuối lặp đi lặp lại tới khi hài lòng:
+  1. **Set a goal** — định nghĩa rõ prompt cần đạt được điều gì
+  2. **Write an initial prompt** — viết 1 bản nháp đầu tiên, đơn giản
+  3. **Evaluate the prompt** — chạy eval, chấm điểm theo tiêu chí đã đặt
+  4. **Apply prompt engineering techniques** — áp dụng 1 kỹ thuật cụ thể để cải thiện
+  5. **Re-evaluate** — chạy lại eval, xác nhận điểm số có tăng thật hay không
+  - Bước 4 và 5 lặp lại tới khi đạt kết quả mong muốn — mỗi vòng lặp phải cho thấy cải thiện
+    **đo được** (measurable improvement) trong điểm eval, không chỉ "cảm giác tốt hơn".
+  - Điểm mấu chốt: không áp dụng kỹ thuật rồi dừng — phải luôn re-evaluate để có bằng chứng khách
+    quan rằng thay đổi thực sự có tác dụng, tránh trường hợp "tưởng tốt hơn nhưng thực ra không".
 - **Ví dụ xuyên suốt module**: bài toán tạo **one-day meal plan cho vận động viên**, dựa trên input
   gồm chiều cao, cân nặng, mục tiêu thể chất, và các hạn chế ăn uống (dietary restrictions).
 - **Setup kỹ thuật đi kèm**: bản eval pipeline được nâng cấp so với session 02 — dùng 1
