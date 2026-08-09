@@ -4,8 +4,8 @@
 - [x] Prompt engineering
 - [x] Being clear and direct
 - [x] Being specific
-- [ ] Structure with XML tags
-- [ ] Providing examples
+- [x] Structure with XML tags
+- [x] Providing examples
 - [ ] Exercise on prompting
 - [ ] Quiz on prompt engineering techniques
 
@@ -82,6 +82,45 @@
   and direct" từ bước trước, điểm eval nhảy từ **3.92 → 7.86** — mức cải thiện lớn nhất trong 2 kỹ
   thuật đã học, cho thấy "cụ thể hóa" tác động mạnh hơn cả việc chỉ "rõ ràng".
 
+### Structure with XML Tags
+- **Structure with XML Tags** = kỹ thuật dùng cặp thẻ XML (vd `<athlete_information>...
+  </athlete_information>`) để bao bọc từng phần nội dung được **interpolate** (chèn) vào prompt,
+  thay vì dán nội dung thô lẫn với phần hướng dẫn.
+- **Vấn đề khi không dùng tag**: khi prompt càng dài, càng có nhiều phần nội dung khác nhau được chèn
+  vào (dữ liệu athlete, guideline, ví dụ...), model dễ nhầm lẫn ranh giới giữa "đây là instruction" và
+  "đây là data cần xử lý" — nhất là khi nội dung chèn vào cũng chứa văn bản tự nhiên giống câu lệnh.
+- **Cách áp dụng**: bọc mỗi khối nội dung interpolate trong 1 cặp tag có tên **mô tả cụ thể**, không
+  dùng tên chung chung. Vd `<athlete_information>` tốt hơn `<data>`, `<my_code>`/`<docs>` tốt hơn gộp
+  chung code và tài liệu vào 1 khối văn bản.
+- **Áp dụng vào ví dụ meal plan**: thay vì viết thẳng "Height: {height}, Weight: {weight}..." xen giữa
+  câu hướng dẫn, bọc toàn bộ input athlete trong `<athlete_information>` để model phân biệt rõ đâu là
+  dữ liệu đầu vào, đâu là chỉ dẫn xử lý dữ liệu đó.
+- **Nguyên tắc dùng tag**: nên bọc tag ngay cả khi nội dung chèn vào **ngắn** — vì mục đích chính là
+  làm rõ ranh giới "đây là input bên ngoài cần cân nhắc", không chỉ để xử lý nội dung dài.
+- **Lợi ích**: giúp cấu trúc prompt rõ ràng hơn với model, giảm nhầm lẫn ranh giới nội dung, cải thiện
+  chất lượng output ngay cả với những khối nội dung nhỏ.
+
+### Providing Examples
+- **Providing Examples (One-shot / Multi-shot prompting)** = kỹ thuật đưa **ví dụ mẫu** (input + output
+  lý tưởng) vào prompt để định hướng hành vi model. **One-shot** = 1 ví dụ, **Multi-shot** = nhiều ví dụ.
+- **Cách triển khai**: bọc mỗi ví dụ trong cặp XML tag riêng (vd `<example>`), bên trong có input mẫu
+  và output mẫu, tách biệt rõ với phần prompt chính (instructions/guidelines) — luôn đặt ví dụ **sau**
+  phần instruction/guideline chính, không đặt trước.
+- **Khi nào dùng kỹ thuật này**:
+  - Xử lý **corner case** (trường hợp đặc biệt) — vd cần chú ý sarcasm, edge case khó diễn tả bằng lời.
+  - Định dạng output **phức tạp** — vd cấu trúc JSON cụ thể, format đặc thù khó mô tả đầy đủ bằng text.
+  - Làm rõ **chất lượng/phong cách** output mong muốn khi lời văn không đủ diễn đạt.
+  - Áp dụng cho bài toán meal plan: đưa 1 ví dụ athlete mẫu + meal plan mẫu đúng chuẩn Type A/B đã học,
+    giúp model "thấy" trước hình mẫu output lý tưởng thay vì chỉ đọc mô tả bằng lời.
+- **Best practices**:
+  - Thêm ngữ cảnh cho corner case ngay trong ví dụ (vd "chú ý đặc biệt tới...").
+  - Kèm **lý do (reasoning)** giải thích tại sao output trong ví dụ là lý tưởng — không chỉ đưa input/
+    output trần mà không giải thích.
+  - Ưu tiên dùng chính những output **đạt điểm cao nhất** từ các lần eval trước làm ví dụ mẫu.
+- **Kết quả kỳ vọng**: kết hợp ví dụ + giải thích tại sao ví dụ đó tốt sẽ củng cố thêm các đặc điểm
+  output mong muốn — thường là bước cải thiện cuối cùng trong chuỗi 4 kỹ thuật của module (Clear &
+  Direct → Specific → XML Tags → Examples), đưa điểm eval lên mức cao nhất trong toàn bộ module.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -100,12 +139,20 @@
   rõ ràng thay vì mô tả bối cảnh lan man trước.
 - [ ] Type B (steps) không phải lúc nào cũng cần — dùng thừa cho task đơn giản có thể khiến prompt dài
   dòng không cần thiết mà không cải thiện điểm số tương xứng. Chỉ dùng khi task thực sự phức tạp.
+- [ ] Tên tag XML phải **mô tả cụ thể** (vd `<athlete_information>`), không dùng tên chung chung như
+  `<data>` — tên mơ hồ làm giảm tác dụng làm rõ ranh giới nội dung của kỹ thuật này.
+- [ ] Ví dụ (examples) luôn đặt **sau** phần instruction/guideline chính trong prompt — đặt trước dễ
+  khiến model coi ví dụ là phần cần xử lý thay vì là hình mẫu tham khảo.
 
 ## CCA-F Exam Tips
 - Phân biệt rõ **Prompt Evaluation** (đo/objective scoring) vs **Prompt Engineering** (kỹ thuật sửa
   prompt) — đề thi có thể hỏi thuật ngữ nào ứng với hành động nào.
 - Quy trình chuẩn của module: viết prompt → chạy eval → áp 1 kỹ thuật → chạy lại eval → so sánh điểm
   — đây chính là 1 vòng lặp cụ thể hoá "A Typical Eval Workflow" đã học ở session 02.
+- Thứ tự 4 kỹ thuật prompt engineering chuẩn của module: **Clear & Direct → Specific → XML Tags →
+  Examples**. Đề thi có thể hỏi thứ tự áp dụng hoặc tác dụng riêng của từng kỹ thuật.
+- XML tags dùng để **tổ chức cấu trúc** prompt (phân biệt input/instruction), khác với Examples dùng để
+  **định hướng hành vi** model qua ví dụ cụ thể — hai kỹ thuật bổ trợ nhau, không thay thế nhau.
 
 ## Code Snippets
 ```python
