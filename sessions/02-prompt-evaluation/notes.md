@@ -3,7 +3,7 @@
 ## Lessons trong section này
 - [x] Prompt evaluation
 - [x] A typical eval workflow
-- [ ] Generating test datasets
+- [x] Generating test datasets
 - [ ] Running the eval
 - [ ] Model based grading
 - [ ] Code based grading
@@ -109,6 +109,31 @@ Test dataset là danh sách các cặp `(input, expected_output/criteria)`. Có 
 - **Dùng chính Claude để generate** — yêu cầu Claude tạo ra N test case đa dạng (kể cả edge case: input rỗng, input dài, input mơ hồ, input sai định dạng...) theo 1 spec cho trước. Cách này giúp mở rộng độ bao phủ (coverage) nhanh hơn, phát hiện được nhiều edge case mà tự nghĩ tay dễ bỏ sót
 
 Dataset càng đa dạng, càng phản ánh sát input thực tế mà user sẽ gửi → eval càng đáng tin cậy.
+
+#### Ví dụ đầy đủ: sinh dataset cho prompt "viết code AWS"
+Bài toán minh họa (xem code chạy được ở [`exercises/03_generate_test_dataset_exercise.py`](exercises/03_generate_test_dataset_exercise.py)): xây eval cho 1 prompt hỗ trợ user viết code liên quan AWS, output phải **sạch** — không giải thích thừa, không header/footer — chỉ 1 trong 3 dạng:
+
+- Python code
+- JSON configuration file
+- Regular expression
+
+**Prompt version 1 (baseline) cần eval:**
+```python
+prompt = f"""
+Please provide a solution to the following task:
+{task}
+"""
+```
+
+**Vì sao dùng Haiku để generate dataset:** bước này chỉ là sinh dữ liệu test (không phải prompt-under-test đang được đánh giá), nên ưu tiên model rẻ + nhanh (`claude-haiku-4-5`) để tiết kiệm chi phí — đúng quy ước `MODEL_DEV` trong CLAUDE.md.
+
+**Cách generate:**
+1. Viết 1 prompt yêu cầu Claude sinh ra 1 JSON array, mỗi phần tử là `{"task": "..."}` mô tả 1 task AWS cần Python/JSON/Regex để giải quyết
+2. Giới hạn phạm vi: chỉ task giải quyết được bằng **1 function/object/regex đơn giản**, không cần viết nhiều code — để dataset dễ chấm điểm và không lệch trọng tâm (đang eval prompt sinh code, không eval khả năng làm task phức tạp)
+3. Dùng **prefill** (`assistant` message = `"```json"`) + **`stop_sequences=["```"]`** — kỹ thuật structured output từ Session 01 — để ép Claude trả thẳng JSON array, không kèm câu dẫn kiểu "Here is the dataset:", parse được ngay bằng `json.loads()`
+4. Sau khi generate xong, **lưu ra file** (`dataset.json`) để dùng lại ở bước "Running the eval" — không cần gọi lại API generate mỗi lần chạy eval (tốn tiền + kết quả không cố định giữa các lần vì `temperature` mặc định là 1.0)
+
+→ Kết quả: 1 dataset gồm N object `{"task": "..."}` bao phủ đa dạng cả 3 loại output (Python/JSON/Regex) cho domain AWS, sẵn sàng đưa vào bước 3 (Feed Through Claude) của eval workflow.
 
 ### Running the eval — chạy prompt trên toàn bộ dataset
 Bước này đơn giản là 1 vòng lặp: với mỗi test case trong dataset, gọi `client.messages.create()` với prompt under test, lưu lại output để chấm điểm ở bước sau. Cần xử lý cả trường hợp API lỗi (timeout, rate limit...) cho từng case riêng lẻ, không để 1 case lỗi làm dừng cả vòng lặp.
