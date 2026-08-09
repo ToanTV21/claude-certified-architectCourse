@@ -2,7 +2,7 @@
 
 ## Lessons trong section này
 - [x] Prompt evaluation
-- [ ] A typical eval workflow
+- [x] A typical eval workflow
 - [ ] Generating test datasets
 - [ ] Running the eval
 - [ ] Model based grading
@@ -44,13 +44,63 @@ Chạy prompt qua eval pipeline cho ra metric khách quan trên tập test case 
 Cách tiếp cận này đòi hỏi đầu tư nhiều hơn ban đầu (thời gian + testing infrastructure), nhưng đổi lại độ tin cậy/robustness của sản phẩm cuối cùng. Mục tiêu là **bắt lỗi trong lúc phát triển**, thay vì để user là người phát hiện ra lỗi trước.
 
 ### A typical eval workflow — quy trình eval điển hình
-Một pipeline eval cơ bản thường gồm các bước sau, lặp lại theo vòng tròn:
+Có nhiều cách lắp ráp workflow eval (tool mã nguồn mở, tool trả phí...), nhưng nắm được quy trình cốt lõi sẽ giúp bắt đầu nhỏ rồi scale dần lên. Một pipeline eval cơ bản gồm 5 bước, lặp lại theo vòng tròn:
 
-1. **Viết prompt** cần đánh giá (prompt under test)
-2. **Generate test dataset** — tập hợp các input mẫu, mỗi input kèm theo kỳ vọng (expected output / tiêu chí đúng)
-3. **Run the eval** — chạy prompt trên từng input trong dataset, thu thập output thực tế
-4. **Grade** — chấm điểm từng output bằng 1 trong 2 cách: **code-based grading** hoặc **model-based grading**
-5. **Phân tích kết quả** — xem tỉ lệ pass/fail, tìm pattern lỗi lặp lại → quay lại chỉnh sửa prompt → chạy lại eval (lặp vòng lặp cho tới khi đạt chất lượng mong muốn)
+**Bước 1 — Draft a Prompt (viết prompt cần đánh giá)**
+Bắt đầu bằng 1 prompt baseline đơn giản, ví dụ:
+```python
+prompt = f"""
+Please answer the user's question:
+
+{question}
+"""
+```
+Đây là baseline dùng để test và cải thiện dần.
+
+**Bước 2 — Create an Eval Dataset (tạo tập dữ liệu test)**
+Dataset gồm các input mẫu đại diện cho loại câu hỏi/request mà prompt sẽ gặp trong production. Các câu hỏi này sẽ được interpolate (chèn) vào prompt template. Ví dụ dataset gồm 3 câu hỏi:
+- "What's 2+2?"
+- "How do I make oatmeal?"
+- "How far away is the Moon?"
+
+Trong thực tế dataset có thể có hàng chục tới hàng nghìn record — tự viết tay hoặc nhờ Claude generate (xem [Generating test datasets](#generating-test-datasets--tạo-tập-dữ-liệu-test) bên dưới).
+
+**Bước 3 — Feed Through Claude (chạy qua Claude để lấy response)**
+Với mỗi câu hỏi trong dataset, ghép vào prompt template thành prompt hoàn chỉnh rồi gửi cho Claude. Ví dụ câu hỏi đầu tiên trở thành:
+```
+Please answer the user's question:
+What's 2+2?
+```
+Claude trả lời "2 + 2 = 4" cho câu toán, hướng dẫn nấu oatmeal cho câu 2, và khoảng cách Mặt Trăng cho câu 3.
+
+**Bước 4 — Feed Through a Grader (chấm điểm qua grader)**
+Grader đánh giá chất lượng response bằng cách xem cả câu hỏi gốc lẫn câu trả lời của Claude, cho điểm khách quan — thường theo thang **1–10** (10 = hoàn hảo, điểm thấp = cần cải thiện). Ví dụ:
+- Câu toán: 10 (trả lời hoàn hảo)
+- Câu oatmeal: 4 (cần cải thiện — thiếu chi tiết)
+- Câu Mặt Trăng: 9 (rất tốt)
+
+→ Điểm trung bình: (10 + 4 + 9) ÷ 3 = **7.66**
+
+**Bước 5 — Change Prompt and Repeat (chỉnh prompt rồi lặp lại)**
+Có điểm baseline rồi, sửa prompt và chạy lại toàn bộ quy trình để xem có cải thiện không. Ví dụ thêm hướng dẫn chi tiết hơn:
+```python
+prompt = f"""
+Please answer the user's question:
+
+{question}
+
+Answer the question with ample detail
+"""
+```
+Chạy lại eval với prompt mới, điểm trung bình có thể tăng lên **8.7** — cho thấy hướng dẫn thêm vào giúp Claude trả lời tốt hơn.
+
+**Prompt Scoring — vì sao workflow này có giá trị**
+Lợi ích cốt lõi là có được **con số đo lường khách quan** cho hiệu năng prompt, từ đó:
+- So sánh các version prompt khác nhau bằng số, không phải cảm tính
+- Chọn version có điểm cao nhất để dùng
+- Tiếp tục iterate để tìm cách tiếp cận tốt hơn nữa
+
+→ Cách tiếp cận có hệ thống này loại bỏ việc đoán mò khỏi prompt engineering, cho mình sự tự tin rằng thay đổi đang thực sự là cải thiện, chứ không chỉ là 1 biến thể khác.
 
 ### Generating test datasets — tạo tập dữ liệu test
 Test dataset là danh sách các cặp `(input, expected_output/criteria)`. Có 2 cách tạo:
