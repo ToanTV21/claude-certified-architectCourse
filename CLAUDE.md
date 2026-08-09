@@ -50,9 +50,9 @@ fpt-claude-study/
 |---|-----------------|---------|--------|
 | 00 | `sessions/00-course-overview/` | Course Overview | ⬜ Todo |
 | 01 | `sessions/01-accessing-claude-api/` | Accessing Claude with the API | ✅ Done |
-| 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | 🔄 In progress |
-| 03 | `sessions/03-prompt-engineering-techniques/` | Prompt Engineering Techniques | ⬜ Todo |
-| 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | ⬜ Todo |
+| 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | ✅ Done |
+| 03 | `sessions/03-prompt-engineering-techniques/` | Prompt Engineering Techniques | ✅ Done |
+| 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | 🔄 In progress |
 | 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ⬜ Todo |
 | 06 | `sessions/06-features-of-claude/` | Features of Claude | ⬜ Todo |
 | 07 | `sessions/07-model-context-protocol/` | Model Context Protocol | ⬜ Todo |
