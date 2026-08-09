@@ -49,8 +49,8 @@ fpt-claude-study/
 | # | Session folder | Section | Status |
 |---|-----------------|---------|--------|
 | 00 | `sessions/00-course-overview/` | Course Overview | ⬜ Todo |
-| 01 | `sessions/01-accessing-claude-api/` | Accessing Claude with the API | 🔄 In progress |
-| 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | ⬜ Todo |
+| 01 | `sessions/01-accessing-claude-api/` | Accessing Claude with the API | ✅ Done |
+| 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | 🔄 In progress |
 | 03 | `sessions/03-prompt-engineering-techniques/` | Prompt Engineering Techniques | ⬜ Todo |
 | 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | ⬜ Todo |
 | 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ⬜ Todo |

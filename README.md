@@ -28,8 +28,8 @@ Mỗi session của khóa học nằm trong 1 folder riêng dưới `sessions/`,
 | # | Session folder | Section | Status |
 |---|-----------------|---------|--------|
 | 00 | [sessions/00-course-overview](sessions/00-course-overview/notes.md) | Course Overview | ⬜ Todo |
-| 01 | [sessions/01-accessing-claude-api](sessions/01-accessing-claude-api/notes.md) | Accessing Claude with the API | 🔄 In progress |
-| 02 | [sessions/02-prompt-evaluation](sessions/02-prompt-evaluation/notes.md) | Prompt Evaluation | ⬜ Todo |
+| 01 | [sessions/01-accessing-claude-api](sessions/01-accessing-claude-api/notes.md) | Accessing Claude with the API | ✅ Done |
+| 02 | [sessions/02-prompt-evaluation](sessions/02-prompt-evaluation/notes.md) | Prompt Evaluation | 🔄 In progress |
 | 03 | [sessions/03-prompt-engineering-techniques](sessions/03-prompt-engineering-techniques/notes.md) | Prompt Engineering Techniques | ⬜ Todo |
 | 04 | [sessions/04-tool-use-with-claude](sessions/04-tool-use-with-claude/notes.md) | Tool Use with Claude | ⬜ Todo |
 | 05 | [sessions/05-rag-and-agentic-search](sessions/05-rag-and-agentic-search/notes.md) | RAG and Agentic Search | ⬜ Todo |
