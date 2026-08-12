@@ -40,6 +40,9 @@ def main():
             model=MODEL, max_tokens=512, tools=[STOCK_TOOL], messages=messages
         )
 
+        # in ra toàn bộ response object (raw) để debug/inspect trước khi xử lý tiếp
+        print(f"Raw response: {response.model_dump_json(indent=2)}")
+
         print(f"Claude stop reason: {response.stop_reason}")
 
         # A response can contain multiple content blocks (text + tool_use).
