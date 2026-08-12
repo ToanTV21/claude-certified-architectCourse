@@ -40,6 +40,8 @@ def main():
             model=MODEL, max_tokens=512, tools=[STOCK_TOOL], messages=messages
         )
 
+        print(f"Claude stop reason: {response.stop_reason}")
+
         # A response can contain multiple content blocks (text + tool_use).
         # duyệt qua từng content block để in ra loại block (text hoặc tool_use)
         for block in response.content:
@@ -74,7 +76,7 @@ def main():
             final = client.messages.create(
                 model=MODEL, max_tokens=256, tools=[STOCK_TOOL], messages=messages
             )
-            print(final.content[0].text)
+            print(f"Final response: {final.content[0].text}")
     except anthropic.APIError as exc:
         # bắt lỗi API để không crash chương trình
         print(f"API error: {exc}")
