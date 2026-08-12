@@ -127,7 +127,9 @@ Khi làm việc trong project này, Claude Code nên:
 5. **Khi tạo bài tập mới** đặt trong đúng `sessions/NN-ten-session/exercises/` folder
 6. **Sau khi làm xong bài tập** cập nhật status trong CLAUDE.md
 6b. **Sau mỗi lần write/edit file** phải `git add` + `git commit` (message ngắn gọn mô tả thay đổi) rồi `git push` lên remote GitHub ngay, không gộp nhiều thay đổi rồi mới commit 1 lần
-7. **Ngôn ngữ giải thích:** khi note lại nội dung học (notes.md, giải thích concept, mô tả trong chat), luôn viết phần giải thích bằng **tiếng Việt**. Các keyword/thuật ngữ kỹ thuật (tên API, param, class, method, tên field, tên sự kiện...) giữ nguyên **tiếng Anh**, không dịch. Vd: "**Tokenization** là bước cắt input text thành các **token** nhỏ" — không viết "Token hoá" hay dịch "token" sang tiếng Việt.
+7. **Ngôn ngữ:**
+   - **Khi chat trực tiếp với user** (trả lời câu hỏi, giải thích, thảo luận trong conversation): luôn dùng **tiếng Anh**.
+   - **Khi ghi note vào file** (notes.md, file `.md` giải thích code, comment trong file...): luôn viết phần giải thích bằng **tiếng Việt**. Các keyword/thuật ngữ kỹ thuật (tên API, param, class, method, tên field, tên sự kiện...) giữ nguyên **tiếng Anh**, không dịch. Vd: "**Tokenization** là bước cắt input text thành các **token** nhỏ" — không viết "Token hoá" hay dịch "token" sang tiếng Việt.
 8. **Khi user yêu cầu "giải thích chi tiết code"** (vd bài tập vừa viết, đoạn code Python trong exercises/), áp dụng đúng format sau:
    - Explain theo **từng đoạn code ngắn** (1 block nhỏ mỗi lần — vd 1 dòng khai báo hàm, 1 vòng lặp, 1 câu lệnh điều kiện), không giải thích dồn cả hàm/file trong 1 đoạn văn dài
    - Với mỗi đoạn: trích lại code block đó trước, rồi giải thích ý nghĩa từng phần/cú pháp bên dưới
