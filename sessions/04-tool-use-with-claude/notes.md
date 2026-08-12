@@ -58,6 +58,17 @@ def get_current_datetime(date_format="%Y%m%d %H:%M:%S"):
     return datetime.now().strftime(date_format)
 ```
 
+Ví dụ cụ thể từ lesson "Tool functions" (bài đầu tiên trong loạt 3 tool của reminder app):
+`get_current_datetime(date_format="%Y-%m-%d %H:%M:%S")` — dùng `datetime.now().strftime(date_format)`
+để trả string đã format theo yêu cầu. Test nhanh với format khác nhau:
+```python
+get_current_datetime()          # "2024-01-15 14:30:25" (default format)
+get_current_datetime("%H:%M")   # "14:30"
+```
+Validate `date_format` rỗng chỉ để minh hoạ pattern validate-input, không phải case Claude hay
+gặp thực tế — nhưng vẫn nên giữ vì dạy đúng thói quen: **luôn validate + raise error rõ ràng ở
+tool function**, vì Claude nhìn thấy error message và có thể tự sửa tham số rồi gọi lại.
+
 ### Tool Schemas (JSON Schema mô tả tool cho Claude)
 **JSON Schema** là chuẩn validate dữ liệu JSON nói chung (không riêng cho ML), được cộng đồng ML
 dùng lại để mô tả tool cho các model. Một tool schema gồm 3 phần:
