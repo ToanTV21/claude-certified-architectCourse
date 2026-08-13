@@ -5,9 +5,9 @@
 - [x] MCP clients
 - [x] Project setup
 - [x] Defining tools with MCP
-- [ ] The server inspector
-- [ ] Implementing a client
-- [ ] Defining resources
+- [x] The server inspector
+- [x] Implementing a client
+- [x] Defining resources
 - [ ] Accessing resources
 - [ ] Defining prompts
 - [ ] Prompts in the client
@@ -162,6 +162,133 @@ tại — Claude có thể đọc message này và phản ứng phù hợp (vd b
 
 Bài tập minh họa: [03_document_mcp_server.py](exercises/03_document_mcp_server.py).
 
+### Lesson 5 — The server inspector
+
+**MCP Inspector** là 1 tool debug/test dạng browser, đi kèm sẵn trong Python MCP SDK — giúp test
+server mà **không cần** kết nối vào 1 application đầy đủ (vd không cần wire tới Claude).
+
+- Chạy inspector bằng lệnh:
+  ```bash
+  mcp dev mcp_server.py
+  ```
+  → khởi động 1 dev server (mặc định port **6277**) và cung cấp 1 local URL để mở trên browser.
+- Sau khi mở URL, bấm **Connect** để start MCP server → thấy navigation bar gồm các mục
+  **Resources**, **Prompts**, **Tools**...
+- Test tool: vào mục **Tools** → **List Tools** để xem danh sách tools → chọn 1 tool → điền
+  parameters → bấm **Run Tool** để chạy và xem kết quả.
+- Có thể **chain nhiều thao tác** để verify — vd sau khi edit document xong, chạy lại tool read
+  để confirm nội dung đã đổi đúng.
+- Vòng lặp dev hiệu quả: sửa code server → test từng tool qua inspector → verify kết quả → debug
+  cô lập (isolation) — không cần setup toàn bộ app mỗi lần test.
+
+Thử với bài tập: [01_mcp_server.py](exercises/01_mcp_server.py) hoặc
+[03_document_mcp_server.py](exercises/03_document_mcp_server.py) — xem lệnh `mcp dev` ở
+[exercises/README.md](exercises/README.md).
+
+### Lesson 6 — Implementing a client
+
+Sau khi có server, cần build phía **client** — thành phần cho phép application giao tiếp với
+MCP server và dùng functionality của nó.
+
+**Lưu ý kiến trúc:** trong hầu hết project thực tế, bạn chỉ implement **1 trong 2** phía (client
+HOẶC server) — không phải cả 2 (giống lesson "Project setup").
+
+**Client gồm 2 thành phần chính:**
+- **MCP Client** — 1 custom class tự viết để dùng session dễ hơn, đồng thời lo việc cleanup
+  resource (đóng kết nối...) tự động khi dùng xong.
+- **Client Session** (`ClientSession`) — kết nối thực sự tới server, là 1 phần của MCP Python SDK.
+
+**2 method cốt lõi cần implement:**
+- `list_tools()` — lấy danh sách tools available từ server:
+  ```python
+  async def list_tools(self) -> list[types.Tool]:
+      result = await self.session().list_tools()
+      return result.tools
+  ```
+- `call_tool(tool_name, tool_input)` — thực thi 1 tool cụ thể trên server với input do Claude
+  cung cấp:
+  ```python
+  async def call_tool(
+      self, tool_name: str, tool_input: dict
+  ) -> types.CallToolResult | None:
+      return await self.session().call_tool(tool_name, tool_input)
+  ```
+
+**Test client trực tiếp** (không qua Claude):
+```python
+async with MCPClient(
+    command="uv", args=["run", "mcp_server.py"]
+) as client:
+    result = await client.list_tools()
+    print(result)
+```
+
+**Luồng hoàn chỉnh khi hỏi Claude về 1 document** (vd "What is the contents of the report.pdf
+document?"):
+1. Code dùng client để lấy danh sách tools available.
+2. Tools này được gửi kèm câu hỏi user tới Claude.
+3. Claude quyết định cần dùng tool `read_doc_contents`.
+4. Code dùng client để execute tool đó.
+5. Kết quả được gửi ngược lại cho Claude → Claude trả lời user.
+
+→ Client đóng vai trò "cầu nối" giữa application logic và MCP server, giúp bạn không cần quan tâm
+chi tiết kết nối bên dưới.
+
+Bài tập minh họa (dùng `ClientSession`/`stdio_client` trực tiếp từ SDK thay vì tự viết class
+wrapper, nhưng cùng ý tưởng `list_tools`/`call_tool`):
+[02_mcp_client.py](exercises/02_mcp_client.py).
+
+### Lesson 7 — Defining resources
+
+**Resources** trong MCP server dùng để **expose data** cho client — tương tự GET request handler
+trong 1 HTTP server thông thường. Phù hợp cho các trường hợp cần **lấy thông tin (fetch)**, khác
+với **tools** vốn dùng để **thực hiện hành động (perform actions)**.
+
+**Ví dụ minh hoạ:** feature "document mention" — user gõ `@document_name` để reference file. Cần
+2 thao tác: (1) lấy danh sách toàn bộ documents (cho autocomplete khi gõ `@`), (2) lấy nội dung
+1 document cụ thể (khi mention được submit, tự động chèn nội dung đó vào prompt gửi Claude).
+
+**Cách hoạt động:** theo pattern request-response — client gửi `ReadResourceRequest` kèm 1 **URI**,
+MCP server trả lại data. URI đóng vai trò như địa chỉ của resource cần truy cập.
+
+**2 loại resource:**
+- **Direct Resource** — URI tĩnh, không đổi. Vd: `docs://documents`.
+- **Templated Resource** — URI có tham số. Vd: `docs://documents/{doc_id}`. Python SDK tự parse
+  tham số từ URI và truyền vào function dưới dạng keyword argument.
+
+**Định nghĩa resource bằng decorator `@mcp.resource(...)`:**
+```python
+# Direct Resource — liệt kê toàn bộ documents
+@mcp.resource("docs://documents", mime_type="application/json")
+def list_docs() -> list[str]:
+    return list(docs.keys())
+
+# Templated Resource — lấy nội dung 1 document theo doc_id
+@mcp.resource("docs://documents/{doc_id}", mime_type="text/plain")
+def fetch_doc(doc_id: str) -> str:
+    if doc_id not in docs:
+        raise ValueError(f"Doc with id {doc_id} not found")
+    return docs[doc_id]
+```
+
+**`mime_type`** — gợi ý cho client biết kiểu dữ liệu trả về, vd `application/json` (dữ liệu JSON
+có cấu trúc), `text/plain` (plain text)... SDK tự động serialize giá trị trả về, không cần tự
+convert sang JSON string thủ công.
+
+**Test resources qua MCP Inspector** (`uv run mcp dev mcp_server.py` hoặc `mcp dev mcp_server.py`):
+mục **Resources** hiển thị direct/static resources, mục **Resource Templates** hiển thị templated
+resources có tham số. Click vào để test và xem chính xác cấu trúc response mà client sẽ nhận.
+
+**Key points:**
+- Resources expose data, tools thực hiện hành động.
+- Direct resource cho static data, templated resource cho parameterized query.
+- MIME type giúp client hiểu định dạng response.
+- SDK tự lo phần serialize.
+- Tên tham số trong templated URI trở thành function argument tương ứng.
+
+Bài tập minh họa: đã bổ sung 2 resources (`list_docs`, `fetch_doc`) vào
+[03_document_mcp_server.py](exercises/03_document_mcp_server.py).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -173,6 +300,10 @@ Bài tập minh họa: [03_document_mcp_server.py](exercises/03_document_mcp_ser
 | `FastMCP(name, log_level=...)` | Class (Python MCP SDK) | — | Khởi tạo MCP server chỉ với 1 dòng, không cần viết JSON schema thủ công |
 | `@mcp.tool(name=..., description=...)` | Decorator | — | Đánh dấu 1 function Python là 1 MCP tool; SDK tự sinh JSON schema từ type hints |
 | `Field(description=...)` | Pydantic | — | Mô tả từng argument của tool để Claude hiểu cách truyền tham số đúng |
+| `mcp dev <server.py>` | CLI command | — | Chạy MCP Inspector (browser-based) để test tool/resource/prompt, mặc định port 6277 |
+| `ClientSession` | Class (MCP SDK) | — | Kết nối thực sự tới MCP server; cung cấp `list_tools()`, `call_tool()`, `read_resource()`... |
+| `@mcp.resource(uri, mime_type=...)` | Decorator | — | Định nghĩa 1 resource (direct hoặc templated); dùng để expose data, không phải thực hiện action |
+| `ReadResourceRequest` | MCP message type | — | Client gửi kèm URI để yêu cầu server trả về data của resource đó |
 
 ## Gotchas
 - [ ] MCP **không thay thế** tool use — MCP chỉ giải quyết vấn đề "ai viết và maintain tool
@@ -193,6 +324,12 @@ Bài tập minh họa: [03_document_mcp_server.py](exercises/03_document_mcp_ser
   cả 2 — làm cả 2 chỉ để mục đích học tập.
 - `@mcp.tool` + Pydantic `Field` thay thế hoàn toàn việc viết JSON schema thủ công — đây là điểm
   khác biệt chính giữa dùng SDK và tự viết tool schema tay (theo cách "trước MCP" ở lesson 1).
+- Phân biệt rõ **tools** (perform actions — có side effect) vs **resources** (expose/fetch data —
+  giống GET handler, không side effect) — đề thi hay hỏi "khi nào dùng tool, khi nào dùng resource".
+- **Direct resource** (URI tĩnh, vd `docs://documents`) khác **Templated resource** (URI có
+  `{param}`, vd `docs://documents/{doc_id}`) — SDK tự parse param từ URI thành keyword argument.
+- `mime_type` chỉ là **gợi ý định dạng** cho client, SDK vẫn tự serialize return value — không cần
+  tự `json.dumps()` thủ công.
 
 ## Code Snippets
 ```python

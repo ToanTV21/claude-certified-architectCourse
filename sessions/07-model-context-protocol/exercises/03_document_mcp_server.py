@@ -58,5 +58,31 @@ def edit_document(
     docs[doc_id] = docs[doc_id].replace(old_str, new_str)
 
 
+# --- Resources (lesson "Defining resources") ---
+# Resources dùng để expose data (giống GET handler), khác với tools ở trên vốn để "perform actions"
+
+
+@mcp.resource(
+    "docs://documents",
+    mime_type="application/json",
+)
+def list_docs() -> list[str]:
+    # Direct Resource — URI tĩnh "docs://documents", không có tham số
+    # SDK tự serialize list[str] này thành JSON, không cần tự json.dumps()
+    return list(docs.keys())
+
+
+@mcp.resource(
+    "docs://documents/{doc_id}",
+    mime_type="text/plain",
+)
+def fetch_doc(doc_id: str) -> str:
+    # Templated Resource — "{doc_id}" trong URI được SDK tự parse và truyền vào đây
+    # dưới dạng keyword argument, giống hệt tên biến trong URI
+    if doc_id not in docs:
+        raise ValueError(f"Doc with id {doc_id} not found")
+    return docs[doc_id]
+
+
 if __name__ == "__main__":
     mcp.run()  # chạy server, mặc định giao tiếp qua stdio với client
