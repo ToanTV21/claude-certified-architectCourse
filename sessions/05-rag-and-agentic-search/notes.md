@@ -101,6 +101,8 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
      (nằm trên unit circle/unit sphere) — không cần tự tính toán, model lo việc này.
      Vd `[0.97, 0.34]` → normalized `[0.944, 0.331]`.
 
+     ![Normalization — embedding vectors nằm trên unit circle](images/normalization.png)
+
      ```mermaid
      quadrantChart
          title Normalization - vectors nam tren unit circle (magnitude = 1.0)
@@ -133,6 +135,8 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
    year?" → `[0.1, 0.89]` → normalized `[0.112, 0.993]`.
 5. **Find similar embeddings** — gửi query embedding vào vector database, database trả
    về (các) chunk embedding gần nhất — chính là chunk "liên quan nhất" tới câu hỏi.
+
+   ![Find Similar Embeddings — query embedding gần nhất với Software Engineering](images/find-similar-embeddings.png)
 
    ```mermaid
    quadrantChart
