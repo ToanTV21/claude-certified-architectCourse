@@ -3,8 +3,8 @@
 ## Lessons trong section này
 - [x] Introducing MCP
 - [x] MCP clients
-- [ ] Project setup
-- [ ] Defining tools with MCP
+- [x] Project setup
+- [x] Defining tools with MCP
 - [ ] The server inspector
 - [ ] Implementing a client
 - [ ] Defining resources
@@ -97,6 +97,71 @@ Lưu ý: file bài tập [01_mcp_server.py](exercises/01_mcp_server.py) và
 [02_mcp_client.py](exercises/02_mcp_client.py) đã minh họa sẵn phần implementation cụ thể của
 client/server này (sẽ được note chi tiết hơn ở lesson "Implementing a client").
 
+### Lesson 3 — Project setup
+
+Lesson này giới thiệu 1 hands-on project: xây dựng **CLI-based chatbot** để hiểu rõ hơn cách MCP
+client và MCP server phối hợp với nhau trong thực tế.
+
+- Chatbot cho phép user tương tác với 1 tập hợp documents qua command-line interface.
+- Gồm 2 thành phần chính:
+  - 1 **MCP client** — xử lý tương tác với user.
+  - 1 **custom MCP server** — quản lý document operations (đọc + update), lưu documents
+    **in-memory** (không cần database) để đơn giản hoá.
+
+**Lưu ý kiến trúc quan trọng:** trong các dự án thực tế, thường bạn chỉ implement **1 trong 2**
+phía — hoặc là MCP server (để expose service của mình cho dev khác dùng), hoặc là MCP client (để
+kết nối tới các MCP server có sẵn). Project này xây **cả 2** chỉ vì mục đích học tập, để hiểu cách
+chúng giao tiếp với nhau.
+
+**Setup project** (theo lesson gốc, dùng file `cli_project.zip` đính kèm bài học, không áp dụng
+trực tiếp trong workspace này):
+1. Thêm Anthropic API key vào file `.env`.
+2. Cài dependencies bằng UV (khuyến nghị) hoặc pip.
+3. Chạy thử app khởi điểm để verify mọi thứ hoạt động (`uv run main.py` hoặc `python main.py`).
+4. Project gốc có các file chính: `main.py`, `mcp_client.py`, `mcp_server.py`.
+
+→ Trong workspace `fpt-claude-study`, phần thực hành tương đương được thể hiện qua
+[01_mcp_server.py](exercises/01_mcp_server.py) và [02_mcp_client.py](exercises/02_mcp_client.py)
+(không cần download file zip riêng).
+
+### Lesson 4 — Defining tools with MCP
+
+Dùng **official Python MCP SDK** (`mcp.server.fastmcp.FastMCP`) giúp việc viết MCP server đơn
+giản hơn nhiều so với tự tay viết JSON schema thủ công — SDK tự lo phần đó thông qua
+**decorators** và **type hints**.
+
+**Khởi tạo server chỉ với 1 dòng:**
+```python
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("DocumentMCP", log_level="ERROR")
+```
+
+**Lưu documents in-memory** bằng 1 Python `dict` đơn giản (key = doc id, value = nội dung).
+
+**Định nghĩa tool bằng decorator `@mcp.tool(...)`:**
+- Tham số `name` và `description` mô tả tool cho Claude (thay cho việc tự viết JSON schema).
+- Mỗi argument của function dùng `Field(description=...)` (từ **Pydantic**) để mô tả rõ ràng
+  argument đó dùng để làm gì — Claude dựa vào các description này để biết cách gọi tool đúng.
+- SDK tự động sinh JSON schema từ type hints + `Field` description → không cần viết schema thủ công.
+
+**2 tools ví dụ trong lesson:**
+- `read_doc_contents(doc_id)` — đọc nội dung 1 document theo id, raise `ValueError` nếu không
+  tìm thấy id.
+- `edit_document(doc_id, old_str, new_str)` — tìm-và-thay-thế (find-and-replace) 1 đoạn text
+  trong document, dùng method `str.replace()` có sẵn của Python.
+
+**Error handling:** cả 2 tools đều raise `ValueError` kèm message rõ ràng khi `doc_id` không tồn
+tại — Claude có thể đọc message này và phản ứng phù hợp (vd báo lại cho user, hoặc thử id khác).
+
+**Lợi ích chính của cách dùng SDK này:**
+- Tự động sinh JSON schema từ Python type hints.
+- Code sạch, dễ maintain.
+- Validation tham số có sẵn nhờ Pydantic.
+- Giảm boilerplate so với viết schema thủ công.
+- Có type safety + IDE hỗ trợ tốt hơn khi code.
+
+Bài tập minh họa: [03_document_mcp_server.py](exercises/03_document_mcp_server.py).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -105,6 +170,9 @@ client/server này (sẽ được note chi tiết hơn ở lesson "Implementing 
 | `ListToolsRequest`/`ListToolsResult` | MCP message type | — | Client hỏi server "có tools gì?" / server trả về danh sách tools |
 | `CallToolRequest`/`CallToolResult` | MCP message type | — | Client yêu cầu server chạy 1 tool + args / server trả kết quả thực thi |
 | Transport (stdio/HTTP/WebSocket) | Concept | stdio (cùng máy) | MCP transport agnostic — client/server có thể giao tiếp qua nhiều kênh khác nhau |
+| `FastMCP(name, log_level=...)` | Class (Python MCP SDK) | — | Khởi tạo MCP server chỉ với 1 dòng, không cần viết JSON schema thủ công |
+| `@mcp.tool(name=..., description=...)` | Decorator | — | Đánh dấu 1 function Python là 1 MCP tool; SDK tự sinh JSON schema từ type hints |
+| `Field(description=...)` | Pydantic | — | Mô tả từng argument của tool để Claude hiểu cách truyền tham số đúng |
 
 ## Gotchas
 - [ ] MCP **không thay thế** tool use — MCP chỉ giải quyết vấn đề "ai viết và maintain tool
@@ -121,6 +189,10 @@ client/server này (sẽ được note chi tiết hơn ở lesson "Implementing 
   Claude lần đầu; `CallToolRequest` chỉ xảy ra **sau khi** Claude quyết định cần dùng tool nào đó.
 - MCP là **transport agnostic** — đề bài có thể hỏi transport nào là phổ biến nhất khi client/server
   cùng máy → đáp án là **stdio (standard input/output)**, không phải HTTP.
+- Trong 1 project thực tế thường chỉ implement **1 trong 2** phía (client HOẶC server), không phải
+  cả 2 — làm cả 2 chỉ để mục đích học tập.
+- `@mcp.tool` + Pydantic `Field` thay thế hoàn toàn việc viết JSON schema thủ công — đây là điểm
+  khác biệt chính giữa dùng SDK và tự viết tool schema tay (theo cách "trước MCP" ở lesson 1).
 
 ## Code Snippets
 ```python
