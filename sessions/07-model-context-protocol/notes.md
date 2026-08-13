@@ -11,7 +11,7 @@
 - [x] Accessing resources
 - [x] Defining prompts
 - [x] Prompts in the client
-- [ ] MCP review
+- [x] MCP review
 - [ ] Quiz on Model Context Protocol
 
 ## Key Concepts
@@ -436,6 +436,30 @@ hệ thống hỏi thêm tham số cần thiết (vd chọn document nào) → p
 Bài tập minh họa: [02_mcp_client.py](exercises/02_mcp_client.py) đã bổ sung
 `session.list_prompts()` bên cạnh `session.get_prompt(...)` đã có sẵn.
 
+### Lesson 11 — MCP review
+
+Slide tổng kết **"MCP Server Primitives"** — điểm mấu chốt cần nhớ để phân biệt rõ 3 loại
+primitive mà 1 MCP server có thể expose: **ai (who)** là bên quyết định dùng nó, và dùng để
+làm gì. Đây là bảng so sánh quan trọng nhất của cả session, rất hay được hỏi trong CCA-F:
+
+| Primitive | Ai kiểm soát (controlled by) | Ai quyết định khi nào dùng | Kết quả được dùng chủ yếu bởi | Dùng cho |
+|-----------|-------------------------------|------------------------------|-------------------------------|----------|
+| **Tools** | **Model-controlled** | **Claude** quyết định khi nào gọi | **Claude** | Cung cấp thêm functionality (additional functionality) cho Claude — vd `read_doc_contents`, `edit_document` |
+| **Resources** | **App-controlled** | **App của bạn** (application code) quyết định khi nào gọi | **App của bạn** | Lấy data vào app (getting data into our app), thêm context vào messages (adding context to messages) — vd `docs://documents/{doc_id}` |
+| **Prompts** | **User-controlled** | **User** quyết định khi nào dùng | — (đưa thẳng vào conversation với Claude) | Chạy workflow dựa theo user input, vd slash command, button click, menu option — vd prompt `format` |
+
+**Cách nhớ nhanh (mapping với lessons đã học):**
+- **Tools** (lesson 4 "Defining tools with MCP") = Claude tự quyết định gọi khi cần thực hiện
+  **hành động** (perform actions) — giống `read_doc_contents`/`edit_document`.
+- **Resources** (lesson 7-8 "Defining/Accessing resources") = App tự chủ động fetch để **lấy data**
+  (giống GET handler) — giống `docs://documents`, `docs://documents/{doc_id}`.
+- **Prompts** (lesson 9-10 "Defining/Prompts in the client") = User tự chọn dùng (vd gõ `/format`)
+  để kích hoạt 1 **workflow** đã soạn sẵn — giống prompt `format`.
+
+→ Ba primitive này **bổ trợ nhau**, không thay thế nhau: 1 MCP server tốt thường kết hợp cả 3 tuỳ
+theo nhu cầu (action cần Claude tự quyết → tool; data cần app chủ động lấy → resource; workflow
+cần user tự kích hoạt → prompt).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -488,6 +512,9 @@ Bài tập minh họa: [02_mcp_client.py](exercises/02_mcp_client.py) đã bổ 
   Claude cần tự quyết định có gọi hay không, hoặc khi thao tác có side effect (edit, ghi dữ liệu...).
 - Prompts khác Resources: **Prompt** trả về sẵn 1 list messages (user/assistant) để gửi thẳng cho
   Claude; **Resource** chỉ trả về data thô để chèn vào prompt do bạn tự soạn.
+- **Câu hỏi kinh điển CCA-F:** "Ai quyết định khi nào 1 tool được gọi?" → **Claude** (model-controlled).
+  "Ai quyết định khi nào 1 resource được fetch?" → **App của bạn** (app-controlled). "Ai quyết định
+  khi nào 1 prompt được dùng?" → **User** (user-controlled). Nhớ đúng 3 cặp này là ăn chắc điểm.
 
 ## Code Snippets
 ```python
