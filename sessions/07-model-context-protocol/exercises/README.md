@@ -8,6 +8,10 @@ Requires: `pip install mcp`
 - `03_document_mcp_server.py` — Defining tools with MCP: in-memory document
   server (`read_doc_contents` / `edit_document`) using Pydantic `Field` for
   auto-generated tool schemas.
+- `04_mcp_chatbot_with_claude.py` — End-to-end MCP client + Claude API flow:
+  `list_tools()` -> convert to Claude tool schema -> call Claude -> execute
+  `call_tool()` on tool_use -> send `tool_result` back -> final answer.
+  Requires a valid `ANTHROPIC_API_KEY` in `.env` (calls the real API).
 
 ## Chạy thử với MCP Inspector
 ```bash

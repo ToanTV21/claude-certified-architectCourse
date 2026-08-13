@@ -97,6 +97,13 @@ Lưu ý: file bài tập [01_mcp_server.py](exercises/01_mcp_server.py) và
 [02_mcp_client.py](exercises/02_mcp_client.py) đã minh họa sẵn phần implementation cụ thể của
 client/server này (sẽ được note chi tiết hơn ở lesson "Implementing a client").
 
+**Bài tập minh họa full flow 9 bước ở trên (bao gồm cả gọi Claude API thật):**
+[04_mcp_chatbot_with_claude.py](exercises/04_mcp_chatbot_with_claude.py) — nối MCP client
+(dùng lại server ở [03_document_mcp_server.py](exercises/03_document_mcp_server.py)) với Claude,
+implement đúng 9 bước: `list_tools()` → convert sang Claude tool schema (`inputSchema` →
+`input_schema`) → gọi Claude → check `stop_reason == "tool_use"` → `call_tool()` → gửi
+`tool_result` về Claude trong follow-up message → in câu trả lời cuối.
+
 ### Lesson 3 — Project setup
 
 Lesson này giới thiệu 1 hands-on project: xây dựng **CLI-based chatbot** để hiểu rõ hơn cách MCP
