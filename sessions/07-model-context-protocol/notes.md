@@ -8,9 +8,9 @@
 - [x] The server inspector
 - [x] Implementing a client
 - [x] Defining resources
-- [ ] Accessing resources
-- [ ] Defining prompts
-- [ ] Prompts in the client
+- [x] Accessing resources
+- [x] Defining prompts
+- [x] Prompts in the client
 - [ ] MCP review
 - [ ] Quiz on Model Context Protocol
 
@@ -289,6 +289,153 @@ resources có tham số. Click vào để test và xem chính xác cấu trúc r
 Bài tập minh họa: đã bổ sung 2 resources (`list_docs`, `fetch_doc`) vào
 [03_document_mcp_server.py](exercises/03_document_mcp_server.py).
 
+### Lesson 8 — Accessing resources
+
+Resources cho phép server expose data để **chèn thẳng vào prompt** gửi Claude, thay vì phải qua
+1 tool call để lấy thông tin → hiệu quả hơn (ít round-trip hơn) khi chỉ cần cung cấp context.
+
+**Flow ví dụ:** user gõ `@report.pdf` để mention document → app dùng MCP client để fetch resource
+đó từ server → nội dung được chèn thẳng vào prompt gửi Claude (Claude nhận content ngay trong
+prompt, không cần tự gọi tool để đọc).
+
+**Implement `read_resource` ở phía client** — nhận vào 1 `uri` xác định resource cần lấy:
+```python
+async def read_resource(self, uri: str) -> Any:
+    result = await self.session().read_resource(AnyUrl(uri))
+    resource = result.contents[0]
+```
+- Response trả về có field `contents` (dạng list) — thường chỉ cần lấy phần tử đầu tiên, chứa data
+  thật sự kèm metadata (vd MIME type).
+
+**Parse content theo MIME type** — MIME type là "gợi ý" để biết cách xử lý data đúng cách:
+```python
+if isinstance(resource, types.TextResourceContents):
+    if resource.mimeType == "application/json":
+        return json.loads(resource.text)
+    return resource.text
+```
+→ resource JSON được parse thành Python object (`json.loads`), resource plain text trả về
+nguyên dạng string.
+
+**Import cần thiết ở client:**
+```python
+import json
+from pydantic import AnyUrl
+```
+- `json` — parse JSON response.
+- `AnyUrl` — đảm bảo type handling đúng cho tham số URI.
+
+**Test qua CLI app:** gõ `"What's in the @report.pdf document?"` → app hiển thị autocomplete
+resources available → chọn resource → tự động fetch content → chèn vào prompt gửi Claude. Claude
+nhận content trực tiếp trong prompt, **không cần** tool call để đọc — nhanh và hiệu quả hơn.
+
+**Tách biệt trách nhiệm (separation of concerns):** MCP client lo giao tiếp với server; application
+logic (phần khác của code) quyết định cách dùng data đó (autocomplete, chèn vào prompt...).
+
+Bài tập minh họa: [02_mcp_client.py](exercises/02_mcp_client.py) đã có sẵn ví dụ
+`session.read_resource("notes://study-log")` (dùng trực tiếp `ClientSession`, không tự viết class
+wrapper riêng như lesson mô tả, nhưng cùng ý tưởng cốt lõi).
+
+### Lesson 9 — Defining prompts
+
+**Prompts** trong MCP server là các **pre-built, high-quality instructions** (template đã soạn
+sẵn) mà client có thể dùng trực tiếp, thay vì tự viết prompt từ đầu.
+
+**Tại sao cần prompts?** Vd muốn Claude reformat 1 document sang markdown — user có thể tự gõ
+"convert report.pdf to markdown" và vẫn work, nhưng kết quả sẽ tốt hơn nhiều nếu dùng 1 prompt đã
+được test kỹ, có instructions cụ thể về formatting/structure/output requirements. Insight: user tự
+làm được, nhưng dùng prompt đã được author của MCP server thiết kế + test kỹ sẽ cho kết quả nhất
+quán và chất lượng cao hơn.
+
+**Cách hoạt động:** prompt định nghĩa sẵn 1 tập user/assistant messages mà client dùng thẳng. Khi
+client request 1 prompt, server trả về list messages có thể gửi ngay cho Claude.
+
+**Cấu trúc cơ bản:**
+- Định nghĩa bằng decorator `@mcp.prompt()`.
+- Thêm `name` + `description` cho từng prompt.
+- Return về 1 list messages tạo thành prompt hoàn chỉnh.
+- Prompt nên chất lượng cao, đã test kỹ, liên quan trực tiếp tới mục đích của MCP server.
+
+**Import cần thiết:**
+```python
+from mcp.server.fastmcp import base
+```
+
+**Ví dụ — prompt "format" (reformat document sang markdown):**
+```python
+@mcp.prompt(
+    name="format",
+    description="Rewrites the contents of the document in Markdown format.",
+)
+def format_document(
+    doc_id: str = Field(description="Id of the document to format")
+) -> list[base.Message]:
+    prompt = f"""..."""  # instructions cụ thể, có nhắc dùng tool 'edit_document' để áp dụng
+    return [base.UserMessage(prompt)]
+```
+- Trả về `list[base.Message]` — ở đây chỉ có 1 `base.UserMessage` chứa toàn bộ instructions.
+
+**Test prompts qua MCP Inspector:** vào mục **Prompts** → chọn prompt → điền tham số cần thiết →
+inspector hiển thị messages đã được generate (đã interpolate biến đúng chưa) trước khi dùng thật.
+
+**Best practices:**
+- Tập trung vào các task cốt lõi (central) với mục đích của MCP server.
+- Viết instructions chi tiết, cụ thể — tránh mơ hồ.
+- Test kỹ với nhiều input khác nhau.
+- Description rõ ràng để user hiểu prompt dùng để làm gì.
+- Cân nhắc cách prompt phối hợp với tools/resources khác của server (vd prompt "format" ở trên có
+  nhắc tới tool `edit_document` để áp dụng thay đổi).
+
+Bài tập minh họa: đã bổ sung prompt `format` vào
+[03_document_mcp_server.py](exercises/03_document_mcp_server.py).
+
+### Lesson 10 — Prompts in the client
+
+Tiếp nối lesson 9, phía **client** cần implement 2 method để dùng được prompts từ server.
+
+**`list_prompts()`** — lấy toàn bộ prompts available từ server:
+```python
+async def list_prompts(self) -> list[types.Prompt]:
+    result = await self.session().list_prompts()
+    return result.prompts
+```
+
+**`get_prompt(prompt_name, args)`** — lấy 1 prompt cụ thể, đã **interpolate arguments** vào sẵn:
+```python
+async def get_prompt(self, prompt_name, args: dict[str, str]):
+    result = await self.session().get_prompt(prompt_name, args)
+    return result.messages
+```
+- Trả về `messages` — 1 "conversation" sẵn sàng đưa thẳng vào Claude.
+
+**Cách argument hoạt động:** prompt function phía server có thể nhận parameters (vd
+`format_document(doc_id: str)`). Khi client gọi `get_prompt`, dict `args` truyền vào cần có đúng
+key mà prompt function mong đợi — MCP server sẽ truyền các giá trị này vào prompt function dưới
+dạng **keyword arguments**, cho phép chèn nội dung động vào template.
+
+**Test qua CLI:** gõ `/` để hiện danh sách prompts dạng command → chọn 1 prompt (vd "format") →
+hệ thống hỏi thêm tham số cần thiết (vd chọn document nào) → prompt hoàn chỉnh (đã interpolate)
+được gửi cho Claude.
+
+**Luồng đầy đủ:**
+1. User chọn 1 prompt (vd "format").
+2. Hệ thống hỏi thêm các argument cần thiết (vd chọn document nào).
+3. Prompt (đã interpolate giá trị) được gửi cho Claude.
+4. Claude có thể dùng tools để lấy thêm data và hoàn thành task.
+
+**Best practices** (lặp lại + bổ sung so với lesson 9):
+- Liên quan trực tiếp tới mục đích của MCP server.
+- Test kỹ trước khi deploy.
+- Instructions rõ ràng, cụ thể.
+- Thiết kế để phối hợp tốt với tools available của server.
+- Cân nhắc user sẽ cần cung cấp argument gì.
+
+→ Prompts là cầu nối giữa functionality đã định nghĩa sẵn và nhu cầu động của user — cho Claude
+1 điểm khởi đầu có cấu trúc cho các task phức tạp, vẫn giữ được sự linh hoạt nhờ parameterization.
+
+Bài tập minh họa: [02_mcp_client.py](exercises/02_mcp_client.py) đã bổ sung
+`session.list_prompts()` bên cạnh `session.get_prompt(...)` đã có sẵn.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -304,6 +451,11 @@ Bài tập minh họa: đã bổ sung 2 resources (`list_docs`, `fetch_doc`) và
 | `ClientSession` | Class (MCP SDK) | — | Kết nối thực sự tới MCP server; cung cấp `list_tools()`, `call_tool()`, `read_resource()`... |
 | `@mcp.resource(uri, mime_type=...)` | Decorator | — | Định nghĩa 1 resource (direct hoặc templated); dùng để expose data, không phải thực hiện action |
 | `ReadResourceRequest` | MCP message type | — | Client gửi kèm URI để yêu cầu server trả về data của resource đó |
+| `AnyUrl` | Pydantic | — | Type wrapper cho URI khi gọi `session.read_resource(AnyUrl(uri))` |
+| `@mcp.prompt(name=..., description=...)` | Decorator | — | Định nghĩa 1 prompt template (list messages) sẵn cho client dùng trực tiếp |
+| `base.UserMessage` / `base.Message` | Class (MCP SDK) | — | Kiểu message trả về từ 1 prompt function, gửi thẳng được cho Claude |
+| `session.list_prompts()` | Method (MCP SDK) | — | Client lấy danh sách toàn bộ prompts mà server expose |
+| `session.get_prompt(name, args)` | Method (MCP SDK) | — | Client lấy 1 prompt cụ thể, `args` được truyền làm keyword argument cho prompt function phía server |
 
 ## Gotchas
 - [ ] MCP **không thay thế** tool use — MCP chỉ giải quyết vấn đề "ai viết và maintain tool
@@ -330,6 +482,12 @@ Bài tập minh họa: đã bổ sung 2 resources (`list_docs`, `fetch_doc`) và
   `{param}`, vd `docs://documents/{doc_id}`) — SDK tự parse param từ URI thành keyword argument.
 - `mime_type` chỉ là **gợi ý định dạng** cho client, SDK vẫn tự serialize return value — không cần
   tự `json.dumps()` thủ công.
+- Ở phía **client**, việc parse content theo `mimeType` (JSON → `json.loads`, còn lại → trả string
+  nguyên văn) là trách nhiệm của client tự làm — server không tự convert giúp phía client.
+- Dùng **resource** khi chỉ cần chèn data thẳng vào prompt (ít round-trip hơn); dùng **tool** khi
+  Claude cần tự quyết định có gọi hay không, hoặc khi thao tác có side effect (edit, ghi dữ liệu...).
+- Prompts khác Resources: **Prompt** trả về sẵn 1 list messages (user/assistant) để gửi thẳng cho
+  Claude; **Resource** chỉ trả về data thô để chèn vào prompt do bạn tự soạn.
 
 ## Code Snippets
 ```python

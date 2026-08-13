@@ -7,6 +7,7 @@ schemas instead of hand-writing JSON schemas.
 """
 
 from mcp.server.fastmcp import FastMCP  # SDK dựng MCP server nhanh, decorator-based
+from mcp.server.fastmcp import base  # base.UserMessage/base.Message dùng cho prompt trả về
 from pydantic import Field  # dùng Field để mô tả từng argument của tool cho Claude hiểu
 
 # log_level="ERROR" — giảm log ồn ào khi chạy dev, chỉ in ra khi có lỗi thật sự
@@ -82,6 +83,33 @@ def fetch_doc(doc_id: str) -> str:
     if doc_id not in docs:
         raise ValueError(f"Doc with id {doc_id} not found")
     return docs[doc_id]
+
+
+# --- Prompts (lesson "Defining prompts") ---
+# Prompt trả về sẵn 1 list messages đã soạn kỹ, client dùng thẳng thay vì tự viết prompt
+
+
+@mcp.prompt(
+    name="format",
+    description="Rewrites the contents of the document in Markdown format.",
+)
+def format_document(
+    doc_id: str = Field(description="Id of the document to format")
+) -> list[base.Message]:
+    # prompt được soạn sẵn, có hướng dẫn cụ thể + nhắc dùng tool 'edit_document' để áp dụng thay đổi
+    prompt = f"""
+Your goal is to reformat a document to be written with markdown syntax.
+
+The id of the document you need to reformat is:
+
+{doc_id}
+
+Add in headers, bullet points, tables, etc as necessary. Feel free to add in extra formatting.
+Use the 'edit_document' tool to edit the document. After the document has been reformatted...
+"""
+
+    # trả về list[base.Message] — ở đây chỉ 1 UserMessage chứa toàn bộ instructions
+    return [base.UserMessage(prompt)]
 
 
 if __name__ == "__main__":

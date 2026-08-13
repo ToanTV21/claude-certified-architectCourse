@@ -36,9 +36,14 @@ async def main():
             resource = await session.read_resource("notes://study-log")
             print("Resource content:", resource.contents[0].text)
 
-            # lấy prompt template đã render sẵn với arg {"text": ...}
+            # list_prompts() — liệt kê toàn bộ prompts mà server expose (lesson "Prompts in the client")
+            prompts = await session.list_prompts()
+            print("Prompts:", [p.name for p in prompts.prompts])
+
+            # get_prompt(name, args) — lấy 1 prompt cụ thể, args được truyền vào làm keyword
+            # argument cho prompt function phía server (vd {"text": ...} ứng với tham số text: str)
             prompt = await session.get_prompt("summarize_prompt", {"text": "MCP is great."})
-            print("Prompt messages:", prompt.messages)
+            print("Prompt messages:", prompt.messages)  # list messages sẵn sàng gửi cho Claude
 
 
 if __name__ == "__main__":
