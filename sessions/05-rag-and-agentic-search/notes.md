@@ -4,7 +4,7 @@
 - [x] Introducing Retrieval Augmented Generation
 - [x] Text chunking strategies
 - [x] Text embeddings
-- [ ] The full RAG flow
+- [x] The full RAG flow
 - [ ] Implementing the RAG flow
 - [ ] BM25 lexical search
 - [ ] A Multi-Index RAG pipeline
@@ -81,6 +81,56 @@ user — đây là bài toán **search**.
 - Bước tiếp theo (chưa học ở lesson này): so sánh các embedding vector để tính độ tương
   đồng (similarity) — đây là core của semantic search.
 
+### 4. The full RAG flow
+Đây là bức tranh tổng thể, ghép toàn bộ các mảnh đã học (chunking, embedding) thành 1
+pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trước, offline) và
+**query-time** (chạy mỗi khi user hỏi).
+
+**Giai đoạn preprocessing (làm 1 lần, trước khi có user nào hỏi):**
+1. **Chunk source text** — chia document gốc thành các chunk nhỏ (vd theo section:
+   "Medical Research" section, "Software Engineering" section).
+2. **Generate embeddings** — đưa từng chunk qua embedding model, ra 1 vector số. Ví dụ
+   minh họa (embedding model tưởng tượng, chỉ 2 chiều: chiều 1 = "độ liên quan y khoa",
+   chiều 2 = "độ liên quan software engineering"):
+   - Chunk "Medical Research" (có chứa từ `'bug'`) → `[0.97, 0.34]`
+   - Chunk "Software Engineering" (có chứa `'infection vectors'`) → `[0.30, 0.97]`
+   - Lưu ý: cả 2 vector đều có phần "lệch" sang chiều còn lại vì có từ ngữ mập mờ
+     (`'bug'` trong y khoa dễ gây nhiễu với software, `'infection vectors'` ngược lại)
+     — đây chính là lý do semantic search (hiểu ý nghĩa) tốt hơn keyword search (khớp từ).
+   - **Normalization**: embedding API thường tự động scale vector về magnitude = 1.0
+     (nằm trên unit circle/unit sphere) — không cần tự tính toán, model lo việc này.
+     Vd `[0.97, 0.34]` → normalized `[0.944, 0.331]`.
+3. **Store in vector database** — lưu các embedding đã chunk vào **vector database**,
+   1 loại database chuyên dụng để lưu trữ, so sánh, và search trên các vector số dài.
+   → Đến đây pipeline **dừng lại và chờ** user gửi query — toàn bộ bước trên là
+   preprocessing, làm trước (offline), không phụ thuộc vào câu hỏi cụ thể nào.
+
+**Giai đoạn query-time (chạy mỗi khi có user hỏi):**
+4. **Process user query** — embed câu hỏi của user bằng **CÙNG 1 embedding model** đã
+   dùng để embed chunks (bắt buộc dùng chung model để vector nằm cùng "không gian ý
+   nghĩa", so sánh được với nhau). Vd query "what did software engineering dept do this
+   year?" → `[0.1, 0.89]` → normalized `[0.112, 0.993]`.
+5. **Find similar embeddings** — gửi query embedding vào vector database, database trả
+   về (các) chunk embedding gần nhất — chính là chunk "liên quan nhất" tới câu hỏi.
+   - **Cosine similarity**: đo độ tương đồng bằng cosin của góc giữa 2 vector.
+     - Range: **-1 đến 1**
+     - Gần **1** → rất giống nhau (giống hướng)
+     - Gần **-1** → rất khác nhau (ngược hướng)
+     - **0** → vuông góc, không liên quan gì nhau
+     - Ví dụ: query vs chunk "Software Engineering" → similarity `0.983` (rất cao,
+       được chọn); query vs chunk "Medical Research" → chỉ `0.398` (thấp, bị loại)
+   - **Cosine distance** = `1 - cosine_similarity` — hay gặp trong docs của vector
+     database. Ngược lại với similarity: gần **0** = giống nhau, càng lớn = càng khác.
+6. **Create the final prompt** — ghép câu hỏi gốc của user + chunk relevant nhất vừa
+   tìm được vào 1 prompt (dùng pattern `<user_question>` / `<report>` hoặc tương tự),
+   gửi cho Claude để sinh câu trả lời cuối cùng — đây chính là bước "Generation" (G)
+   trong RAG, dựa trên context đã "Retrieve" (R) được ở bước 5.
+
+**Tóm tắt luồng chạy đầy đủ:**
+`Chunk → Embed chunks → Store in vector DB` (preprocessing, offline)
+`→ (chờ query) → Embed query (cùng model) → Cosine similarity search trong vector DB
+→ Lấy chunk gần nhất → Ghép prompt (question + chunk) → Gửi Claude → Trả lời` (query-time)
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -88,12 +138,16 @@ user — đây là bài toán **search**.
 | `re.split(r"(?<=[.!?])\s+", text)` | function | — | Sentence-based chunking: split câu bằng lookbehind trên dấu câu kết thúc |
 | `voyageai.Client()` | class | — | Client cho VoyageAI embedding API, đọc `VOYAGE_API_KEY` từ env |
 | `client.embed(texts, model, input_type)` | method | model="voyage-3-large" | `texts`: list[str]; `input_type`: "query" hoặc "document"; trả về `.embeddings` (list các vector) |
+| Cosine similarity | công thức | — | `dot(a, b) / (norm(a) * norm(b))` — nếu a, b đã normalize (magnitude=1) thì đơn giản còn `dot(a, b)` |
+| Cosine distance | công thức | — | `1 - cosine_similarity` — dùng phổ biến trong vector DB (0 = giống nhau, lớn hơn = khác nhau) |
 
 ## Gotchas
 - [ ] Anthropic KHÔNG có embedding API riêng — bắt buộc phải dùng provider ngoài (VoyageAI được recommend chính thức)
 - [ ] `VOYAGE_API_KEY` là biến env RIÊNG, khác `ANTHROPIC_API_KEY` — cần add cả 2 vào `.env`
 - [ ] Size-based chunking KHÔNG overlap sẽ cắt ngang câu/từ — luôn cân nhắc `chunk_overlap > 0`
 - [ ] `input_type` khi embed câu hỏi user nên là `"query"`, khi embed document/chunk nên là `"document"` — 2 loại có thể được model tối ưu khác nhau
+- [ ] Query và chunks BẮT BUỘC phải embed bằng CÙNG 1 model — embedding từ 2 model khác nhau không nằm cùng không gian vector, so sánh (cosine similarity) sẽ vô nghĩa
+- [ ] Cosine similarity range là [-1, 1], KHÔNG phải [0, 1] — dễ nhầm với các loại similarity score khác (vd Jaccard)
 
 ## Code Snippets
 ```python
