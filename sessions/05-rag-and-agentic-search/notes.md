@@ -164,6 +164,12 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
      - **0** → vuông góc, không liên quan gì nhau
      - Ví dụ: query vs chunk "Software Engineering" → similarity `0.983` (rất cao,
        được chọn); query vs chunk "Medical Research" → chỉ `0.398` (thấp, bị loại)
+
+     ![Cosine Similarity — góc a (query vs Software Engineering) nhỏ hơn góc b (query vs Medical Research)](images/cosine-similarity-example.png)
+
+     Hình minh họa: góc `a` (giữa `User query` và `Software Engineering`) nhỏ hơn hẳn
+     góc `b` (giữa `User query` và `Medical Research`) → `cos(a) = 0.983` cao hơn nhiều
+     so với `cos(b) = 0.398`, đúng với công thức `cos(θ) = (A·B) / (||A||·||B||)`.
    - **Cosine distance** = `1 - cosine_similarity` — hay gặp trong docs của vector
      database. Ngược lại với similarity: gần **0** = giống nhau, càng lớn = càng khác.
 6. **Create the final prompt** — ghép câu hỏi gốc của user + chunk relevant nhất vừa
@@ -275,6 +281,8 @@ mục 6) lại thành **1 pipeline hybrid duy nhất**.
   **"program to an interface, not an implementation"**. Nhờ interface giống nhau, ta
   viết được 1 class bọc ngoài (`Retriever`) mà không cần biết bên trong mỗi index hoạt
   động thế nào.
+
+  ![Multi-Index RAG pipeline — VectorIndex và BM25Index dùng chung interface add_document()/search()](images/multi-index-common-interface.png)
 - **`Retriever`** đóng vai trò coordinator: forward query tới TẤT CẢ các index đã đăng
   ký, gom kết quả trả về, rồi **merge** bằng kỹ thuật **Reciprocal Rank Fusion (RRF)**.
 
@@ -301,11 +309,15 @@ RRF_score(d) = Σ 1 / (k + rank_i(d))
 - VectorIndex rank: Section 2 (1), Section 7 (2), Section 6 (3)
 - BM25Index rank: Section 6 (1), Section 2 (2), Section 7 (3)
 
+![Multi-Index RAG pipeline — bảng so sánh rank từ VectorIndex và BM25Index cho từng text chunk](images/rrf-rank-comparison.png)
+
 | Document | RRF score | Tính toán |
 |----------|-----------|-----------|
 | Section 2 | **0.833** | `1/(1+1) + 1/(1+2)` = 0.5 + 0.333 |
 | Section 6 | 0.75 | `1/(1+3) + 1/(1+1)` = 0.25 + 0.5 |
 | Section 7 | 0.583 | `1/(1+2) + 1/(1+3)` = 0.333 + 0.25 |
+
+![RRF score formula — RRF_score(d) = Σ 1/(k + rank_i(d)), higher score = more relevant](images/rrf-score-formula.png)
 
 → Section 2 lên đầu vì nó **xếp hạng tốt ở CẢ 2 index** (rank 1 ở Vector, rank 2 ở
 BM25) — đúng trực giác: document càng nhất quán được cả 2 phương pháp đánh giá cao thì
