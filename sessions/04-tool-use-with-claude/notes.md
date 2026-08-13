@@ -395,6 +395,9 @@ Claude search **nhiều lần** trong cùng 1 request (tối đa `max_uses`).
   (đọc/ghi file thật) vẫn phải tự code y như tool tự định nghĩa
 - [ ] `type` của Text Editor Tool đi kèm ngày tháng khác nhau tùy version model — dùng sai version
   dễ gây lỗi 400, phải tra đúng docs cho model đang dùng
+- [x] `content` trong `tool_result` block nên dùng `json.dumps(tool_output)` thay vì `str(result)`
+  khi tool trả về `dict`/`list` — `str()` cho ra Python repr (dấu `'` thay vì `"`) không phải JSON
+  hợp lệ, Claude vẫn đọc được nhưng dễ nhầm lẫn/parse sai nếu code phía sau cố `json.loads` lại
 
 ## Code Snippets
 ```python
