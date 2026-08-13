@@ -132,6 +132,39 @@ append **toàn bộ `response.content`** (không chỉ lấy text) vào `message
 Đối chiếu Java: giống việc 1 response object có nhiều "field" khác kiểu (text vs action-request)
 thay vì chỉ 1 String trả về — phải xử lý theo dạng polymorphic list thay vì giá trị đơn.
 
+**Cấu trúc 1 multi-block assistant message** khi Claude quyết định gọi tool, `response.content`
+là 1 list gồm (thứ tự có thể khác nhau tùy lần gọi):
+- **Text block** — phần Claude giải thích cho user trước khi gọi tool (vd "Let me check that for
+  you") — có thể có hoặc không, tùy Claude quyết định
+- **ToolUse block** — gồm `type="tool_use"`, `id` (dùng để khớp với `tool_result` sau này),
+  `name` (tên tool), `input` (dict tham số Claude tự suy ra từ user message)
+
+**Cập nhật helper functions** để nhận cả string (single text) lẫn list block (multi-block), thay
+vì chỉ nhận string như ở session 01:
+
+```python
+def add_user_message(messages: list, content) -> None:
+    # content có thể là str (message thường) hoặc list block (vd tool_result)
+    messages.append({"role": "user", "content": content})
+
+
+def add_assistant_message(messages: list, content) -> None:
+    # content có thể là str, hoặc trực tiếp response.content (list block text + tool_use)
+    # khi content là response object thì lấy .content, còn lại giữ nguyên
+    messages.append({"role": "assistant", "content": content})
+```
+
+Thực chất chỉ cần bỏ ép kiểu `str` ở signature — `content` giờ nhận `str | list`, logic append
+không đổi vì Anthropic API tự hiểu cả 2 dạng (string được coi như 1 text block ngầm định).
+
+**Luồng đầy đủ khi dùng tool** (5 bước):
+1. Gửi user message + khai báo `tools=[...]` cho Claude
+2. Nhận về assistant message multi-block (text block + tool_use block)
+3. Đọc `tool_use` block, thực thi hàm Python tương ứng ở phía server mình
+4. Gửi lại **toàn bộ** `response.content` (làm assistant message) + `tool_result` (làm user
+   message mới) — đầy đủ lịch sử để Claude có context
+5. Nhận response cuối cùng từ Claude, dựa trên kết quả tool vừa có
+
 ### Sending Tool Results (gửi kết quả tool lại cho Claude)
 Sau khi server chạy xong tool function, đóng gói kết quả thành `tool_result` block và gửi lại
 trong 1 **user message** mới (không phải assistant message):
