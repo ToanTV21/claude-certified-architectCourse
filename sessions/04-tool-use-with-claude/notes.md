@@ -381,6 +381,11 @@ Xem implementation đầy đủ trong
 **Web Search Tool** = built-in tool **không cần tự code implementation** — khác hẳn Text Editor
 Tool ở trên. Chỉ cần khai báo schema, Claude tự chạy search và trả kết quả trực tiếp trong response.
 
+**Bắt buộc:** phải **bật tính năng này trong Console settings** trước khi dùng, ở
+[console.anthropic.com/settings/privacy](https://console.anthropic.com/settings/privacy) —
+nếu chưa bật, request sẽ lỗi dù schema đúng 100%. Đây là setting ở mức **organization**, không
+phải thứ chỉnh trong code.
+
 Schema:
 ```python
 web_search_tool = {
@@ -439,6 +444,8 @@ Claude search **nhiều lần** trong cùng 1 request (tối đa `max_uses`).
   dễ gây lỗi 400, phải tra đúng docs cho model đang dùng. Trên Claude 4.x, `name` cũng đổi theo
   (`str_replace_based_edit_tool`, không phải `str_replace_editor` của bản 3.x) — đổi `type` mà
   quên đổi `name` (hoặc ngược lại) đều bị lỗi 400. Bản 4.x cũng bỏ command `undo_edit`.
+- [ ] Web Search Tool phải được **bật trong Console settings** (Privacy settings, cấp
+  organization) trước khi dùng — thiếu bước này request sẽ lỗi dù code/schema đúng
 - [x] `content` trong `tool_result` block nên dùng `json.dumps(tool_output)` thay vì `str(result)`
   khi tool trả về `dict`/`list` — `str()` cho ra Python repr (dấu `'` thay vì `"`) không phải JSON
   hợp lệ, Claude vẫn đọc được nhưng dễ nhầm lẫn/parse sai nếu code phía sau cố `json.loads` lại
