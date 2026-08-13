@@ -1,154 +1,226 @@
 """
 Exercise 04: The Batch Tool
 Session: Tool Use with Claude
-Objective: Gom nhieu loi goi tool vao 1 message duy nhat bang cach dinh nghia
-mot "batch" tool ao, thay vi de Claude goi tuan tu tung tool rieng le tung round.
+Objective: Gom nhiều lời gọi tool vào 1 message duy nhất bằng cách định nghĩa 1 tool
+    "batch" ảo, thay vì để Claude gọi tuần tự từng tool riêng lẻ từng round — giảm số
+    round-trip request/response.
 """
 
-from dotenv import load_dotenv  # doc ANTHROPIC_API_KEY tu file .env, khong hardcode key
-import anthropic  # SDK chinh thuc cua Anthropic
-import json  # parse chuoi JSON argument cua tung invocation trong batch
+from dotenv import load_dotenv  # load biến môi trường từ file .env, không hardcode API key
+import anthropic  # SDK chính thức để gọi Claude API
+from anthropic.types import ToolParam  # wrap dict schema để bắt lỗi type sớm ở dev-time
+import json  # parse chuỗi JSON argument của từng invocation trong batch
 
-load_dotenv()  # nap bien moi truong tu .env vao os.environ
-client = anthropic.Anthropic()  # tao client, tu doc ANTHROPIC_API_KEY tu env
+load_dotenv()  # đọc ANTHROPIC_API_KEY từ .env
+client = anthropic.Anthropic()  # khởi tạo client dùng chung cho cả file
 
-MODEL = "claude-haiku-4-5"  # model nhanh + re, dung cho dev/test theo rule CLAUDE.md
+MODEL = "claude-haiku-4-5"  # model rẻ, dùng cho dev/test
 
 
-# --- 2 tool function that su te (khong goi API ngoai, chi de minh hoa) ---
+def add_user_message(messages: list, content) -> None:
+    """Thêm 1 user message vào messages list.
+
+    content có thể là str (câu hỏi thường) hoặc list block (vd list các tool_result
+    block khi trả kết quả tool về cho Claude).
+    """
+    messages.append({"role": "user", "content": content})
+
+
+def add_assistant_message(messages: list, content) -> None:
+    """Thêm 1 assistant message vào messages list.
+
+    content thường chính là response.content — list block (text + tool_use) —
+    phải giữ nguyên toàn bộ, không được chỉ lấy phần text.
+    """
+    messages.append({"role": "assistant", "content": content})
+
+
 def get_weather(city: str) -> dict:
-    """Tra ve thoi tiet gia lap cho 1 thanh pho (mock, khong goi API that)."""
+    """Tool function: trả về thời tiết giả lập cho 1 thành phố (mock, không gọi API thật)."""
+    # city: str — tên thành phố Claude truyền vào
     if not city:
-        # validate input ngay dau ham, raise loi ro rang de Claude thay va tu sua
-        raise ValueError("city khong duoc de trong")
+        raise ValueError("city cannot be empty")
     fake_data = {"Tokyo": "28C, nang", "Hanoi": "33C, mua rao", "Osaka": "30C, may"}
     return {"city": city, "forecast": fake_data.get(city, "khong co du lieu")}
 
 
 def convert_currency(amount: float, from_currency: str, to_currency: str) -> dict:
-    """Quy doi tien te gia lap bang ty gia co dinh (mock)."""
+    """Tool function: quy đổi tiền tệ giả lập bằng tỷ giá cố định (mock)."""
+    # amount: float, from_currency/to_currency: str (mã tiền tệ 3 ký tự)
     fake_rates = {("USD", "JPY"): 150.0, ("USD", "VND"): 25000.0}
     rate = fake_rates.get((from_currency, to_currency))
     if rate is None:
-        raise ValueError(f"khong ho tro cap ty gia {from_currency}->{to_currency}")
+        raise ValueError(f"unsupported currency pair {from_currency}->{to_currency}")
     return {"amount": amount * rate, "currency": to_currency}
 
 
-# dispatcher: anh xa ten tool -> ham Python thuc thi tuong ung
+# Schema đặt tên theo convention "<ten_ham>_schema" — 2 tool thật Claude có thể gọi trực tiếp
+get_weather_schema = ToolParam(
+    {
+        "name": "get_weather",
+        "description": "Get the current weather forecast for a given city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"city": {"type": "string", "description": "City name."}},
+            "required": ["city"],
+        },
+    }
+)
+
+convert_currency_schema = ToolParam(
+    {
+        "name": "convert_currency",
+        "description": "Convert an amount of money from one currency to another.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amount": {"type": "number", "description": "Amount to convert."},
+                "from_currency": {"type": "string", "description": "Source currency code, e.g. USD."},
+                "to_currency": {"type": "string", "description": "Target currency code, e.g. JPY."},
+            },
+            "required": ["amount", "from_currency", "to_currency"],
+        },
+    }
+)
+
+# Schema của tool "batch" ảo — Claude sẽ gọi tool này với 1 list các invocation thay vì
+# gọi riêng lẻ từng tool thật, giúp gom nhiều tool call vào 1 round duy nhất
+batch_schema = ToolParam(
+    {
+        "name": "batch",
+        "description": (
+            "Invoke multiple other tools in a single call. Use this whenever you need to "
+            "call more than one tool to answer the user's request, instead of calling "
+            "tools one at a time across multiple turns."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "invocations": {
+                    "type": "array",
+                    "description": "List of tool calls to run.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Name of the tool to call."},
+                            "arguments": {
+                                "type": "string",
+                                "description": "Arguments for the tool, as a JSON string.",
+                            },
+                        },
+                        "required": ["name", "arguments"],
+                    },
+                }
+            },
+            "required": ["invocations"],
+        },
+    }
+)
+
+TOOLS = [get_weather_schema, convert_currency_schema, batch_schema]
+
+
 def run_tool(tool_name: str, tool_input: dict):
+    """Dispatcher: map tên tool -> hàm Python thực thi tương ứng."""
     if tool_name == "get_weather":
         return get_weather(**tool_input)
     if tool_name == "convert_currency":
         return convert_currency(**tool_input)
-    # tool khong ton tai -> raise de bao loi ro rang thay vi fail am tham
     raise ValueError(f"Unknown tool: {tool_name}")
 
 
 def run_batch(batch_input: dict) -> list:
-    """Chay tat ca cac loi goi tool ben trong 1 batch, tra ve list ket qua tuong ung."""
+    """Chạy tất cả lời gọi tool bên trong 1 batch, trả về list kết quả tương ứng."""
+    # batch_input: dict — chính là tool_use.input của tool "batch", có key "invocations"
     batch_output = []
     for invocation in batch_input["invocations"]:
-        tool_name = invocation["name"]  # ten tool that su can chay
-        # arguments duoc Claude gui duoi dang chuoi JSON, can parse lai thanh dict
+        tool_name = invocation["name"]  # tên tool thật sự cần chạy
+        # arguments được Claude gửi dưới dạng chuỗi JSON, cần parse lại thành dict
         tool_input = json.loads(invocation["arguments"])
         try:
             result = run_tool(tool_name, tool_input)
             batch_output.append({"name": tool_name, "output": result, "is_error": False})
         except Exception as exc:
-            # loi cua 1 tool khong lam sap ca batch, chi danh dau is_error cho item do
+            # lỗi của 1 tool không làm sập cả batch, chỉ đánh dấu is_error cho item đó
             batch_output.append({"name": tool_name, "output": str(exc), "is_error": True})
     return batch_output
 
 
-# schema cua 2 tool that (Claude co the goi truc tiep neu khong dung batch)
-WEATHER_SCHEMA = {
-    "name": "get_weather",
-    "description": "Get the current weather forecast for a given city.",
-    "input_schema": {
-        "type": "object",
-        "properties": {"city": {"type": "string", "description": "Ten thanh pho"}},
-        "required": ["city"],
-    },
-}
+def run_tools(message) -> list:
+    """Chạy tất cả tool_use block trong message — xử lý riêng block "batch" (nhiều tool con)
+    và các tool_use thường (1 tool), rồi gom hết thành list tool_result block."""
+    tool_result_blocks = []
+    for block in message.content:
+        if block.type != "tool_use":
+            continue  # bỏ qua text block, chỉ xử lý tool_use block
 
-CURRENCY_SCHEMA = {
-    "name": "convert_currency",
-    "description": "Convert an amount of money from one currency to another.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "amount": {"type": "number", "description": "So tien can quy doi"},
-            "from_currency": {"type": "string", "description": "Ma tien te goc, vd USD"},
-            "to_currency": {"type": "string", "description": "Ma tien te dich, vd JPY"},
-        },
-        "required": ["amount", "from_currency", "to_currency"],
-    },
-}
+        if block.name == "batch":
+            print(f"  -> calling batch with {len(block.input['invocations'])} invocation(s)  [id={block.id}]")
+            batch_results = run_batch(block.input)
+            for r in batch_results:
+                print(f"     - {r['name']} -> {r['output']} (is_error={r['is_error']})")
+            # cả batch chỉ có 1 tool_use_id (của tool "batch") -> gộp toàn bộ kết quả
+            # con vào 1 tool_result content duy nhất, khớp đúng id đó
+            tool_result_blocks.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(batch_results),
+                    "is_error": any(r["is_error"] for r in batch_results),
+                }
+            )
+            continue
 
-# schema cua tool "batch" ao - Claude se goi tool nay voi 1 list cac invocation
-# thay vi goi rieng le tung tool that, giup gom nhieu tool call vao 1 round duy nhat
-BATCH_SCHEMA = {
-    "name": "batch",
-    "description": (
-        "Invoke multiple other tools in a single call. Use this whenever you need "
-        "to call more than one tool to answer the user's request, instead of "
-        "calling tools one at a time across multiple turns."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "invocations": {
-                "type": "array",
-                "description": "Danh sach cac tool can goi",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Ten tool can goi"},
-                        "arguments": {
-                            "type": "string",
-                            "description": "Argument cua tool, dang chuoi JSON",
-                        },
-                    },
-                    "required": ["name", "arguments"],
-                },
-            }
-        },
-        "required": ["invocations"],
-    },
-}
+        print(f"  -> calling tool: {block.name}({block.input})  [id={block.id}]")
+        try:
+            result = run_tool(block.name, block.input)
+            tool_result_blocks.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,  # PHẢI khớp id của tool_use block gốc
+                    "content": str(result),
+                    "is_error": False,
+                }
+            )
+        except Exception as exc:
+            tool_result_blocks.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": str(exc),
+                    "is_error": True,
+                }
+            )
+    return tool_result_blocks
 
 
 def main():
-    # cau hoi can 2 tool khac nhau -> ky vong Claude dung 1 lan goi "batch"
-    # thay vi 2 round rieng le
-    user_prompt = (
-        "What's the weather in Tokyo, and how much is 100 USD in JPY?"
-    )
+    messages = []
+    # câu hỏi cần 2 tool khác nhau -> kỳ vọng Claude dùng 1 lần gọi "batch" thay vì 2 round riêng
+    add_user_message(messages, "What's the weather in Tokyo, and how much is 100 USD in JPY?")
 
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        # dua ca 2 tool that + tool batch vao cung 1 danh sach de Claude chon
-        tools=[WEATHER_SCHEMA, CURRENCY_SCHEMA, BATCH_SCHEMA],
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    try:
+        response = client.messages.create(
+            model=MODEL, max_tokens=1024, messages=messages, tools=TOOLS
+        )
 
-    # tim block tool_use co ten "batch" trong response
-    batch_calls = [b for b in response.content if b.type == "tool_use" and b.name == "batch"]
+        if response.stop_reason == "tool_use":
+            add_assistant_message(messages, response.content)
+            tool_results = run_tools(response)
+            add_user_message(messages, tool_results)
 
-    if batch_calls:
-        for call in batch_calls:
-            print(f"Claude goi batch voi {len(call.input['invocations'])} invocation(s)")
-            results = run_batch(call.input)
-            for r in results:
-                print(f"  - {r['name']} -> {r['output']} (is_error={r['is_error']})")
-    else:
-        # Claude co the van goi tool rieng le neu khong thay batch phu hop
-        tool_calls = [b for b in response.content if b.type == "tool_use"]
-        for call in tool_calls:
-            print(f"Claude goi rieng le: {call.name}({call.input})")
-        if not tool_calls:
-            print("Claude tra loi thang, khong goi tool nao.")
+            final_response = client.messages.create(
+                model=MODEL, max_tokens=512, messages=messages, tools=TOOLS
+            )
+            final_text = next(
+                (b.text for b in final_response.content if b.type == "text"), ""
+            )
+            print(f"\nFinal answer: {final_text}")
+        else:
+            print(response.content[0].text)
+    except anthropic.APIError as exc:
+        # bắt lỗi API để không crash chương trình
+        print(f"API error: {exc}")
 
 
 if __name__ == "__main__":

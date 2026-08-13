@@ -1,59 +1,73 @@
 """
 Exercise 05: Tools for Structured Data
 Session: Tool Use with Claude
-Objective: Dung tool + tool_choice ep buoc de lay du lieu co cau truc (JSON)
-dang tin cay tu 1 doan text tu do, thay vi dung ky thuat pre-fill + stop sequence.
+Objective: Dùng tool + tool_choice ép buộc để lấy dữ liệu có cấu trúc (JSON) đáng tin cậy
+    từ 1 đoạn text tự do, thay vì dùng kỹ thuật pre-fill + stop sequence. Khác với luồng
+    tool use thông thường, KHÔNG cần gửi tool_result quay lại vì mục đích chỉ là extract.
 """
 
-from dotenv import load_dotenv  # doc ANTHROPIC_API_KEY tu file .env
-import anthropic  # SDK chinh thuc cua Anthropic
+from dotenv import load_dotenv  # load biến môi trường từ file .env, không hardcode API key
+import anthropic  # SDK chính thức để gọi Claude API
+from anthropic.types import ToolParam  # wrap dict schema để bắt lỗi type sớm ở dev-time
 
-load_dotenv()  # nap bien moi truong tu .env
-client = anthropic.Anthropic()  # tao client, tu doc key tu env
+load_dotenv()  # đọc ANTHROPIC_API_KEY từ .env
+client = anthropic.Anthropic()  # khởi tạo client dùng chung cho cả file
 
-MODEL = "claude-haiku-4-5"  # dung haiku cho bai tap dev/test
+MODEL = "claude-haiku-4-5"  # model rẻ, dùng cho dev/test
 
-# input_schema o day chinh la "hinh dang" du lieu ma minh muon Claude tra ve,
-# khong phai mo ta tham so cho 1 hanh dong thuc thi nhu cac tool thong thuong
-EXTRACT_CONTACT_SCHEMA = {
-    "name": "extract_contact_info",
-    "description": (
-        "Extract structured contact information (name, email, phone, company) "
-        "from a piece of unstructured text such as an email signature."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "Ho ten day du cua nguoi lien he"},
-            "email": {"type": "string", "description": "Dia chi email, rong neu khong co"},
-            "phone": {"type": "string", "description": "So dien thoai, rong neu khong co"},
-            "company": {"type": "string", "description": "Ten cong ty, rong neu khong co"},
+
+def add_user_message(messages: list, content) -> None:
+    """Thêm 1 user message vào messages list. content ở đây luôn là str (đoạn text cần extract)."""
+    messages.append({"role": "user", "content": content})
+
+
+# input_schema ở đây chính là "hình dạng" dữ liệu muốn Claude trả về, không phải mô tả
+# tham số cho 1 hành động thực thi như các tool thông thường -> tên gọi theo convention
+# "<ten_tool>_schema" vẫn giữ nguyên để nhất quán với các exercise khác
+extract_contact_info_schema = ToolParam(
+    {
+        "name": "extract_contact_info",
+        "description": (
+            "Extract structured contact information (name, email, phone, company) from "
+            "a piece of unstructured text such as an email signature."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Full name of the contact."},
+                "email": {"type": "string", "description": "Email address, empty if not present."},
+                "phone": {"type": "string", "description": "Phone number, empty if not present."},
+                "company": {"type": "string", "description": "Company name, empty if not present."},
+            },
+            "required": ["name", "email", "phone", "company"],
         },
-        "required": ["name", "email", "phone", "company"],
-    },
-}
+    }
+)
 
 
 def extract_contact(raw_text: str) -> dict:
-    """Goi Claude, ep no luon tra ve du lieu qua tool extract_contact_info."""
+    """Gọi Claude, ép nó luôn trả về dữ liệu qua tool extract_contact_info."""
+    messages = []
+    add_user_message(messages, raw_text)
+
     response = client.messages.create(
         model=MODEL,
         max_tokens=512,
-        tools=[EXTRACT_CONTACT_SCHEMA],
-        # ep Claude LUON goi dung tool nay, khong duoc tra loi bang text thuong
-        # va khong duoc tu chon tool khac (khac voi tool_choice mac dinh "auto")
+        messages=messages,
+        tools=[extract_contact_info_schema],
+        # ép Claude LUÔN gọi đúng tool này, không được trả lời bằng text thường
+        # và không được tự chọn tool khác (khác với tool_choice mặc định "auto")
         tool_choice={"type": "tool", "name": "extract_contact_info"},
-        messages=[{"role": "user", "content": raw_text}],
     )
 
-    # vi tool_choice ep buoc nen block dau tien chac chan la tool_use,
-    # lay thang du lieu co cau truc tu "input" - khong can gui tool_result quay lai
+    # vì tool_choice ép buộc nên block đầu tiên chắc chắn là tool_use — lấy thẳng dữ liệu
+    # có cấu trúc từ "input", KHÔNG cần gửi tool_result quay lại như luồng tool use thường
     tool_use_block = response.content[0]
     return tool_use_block.input
 
 
 def main():
-    # vai doan text tho, dinh dang khong dong nhat, de kiem tra do tin cay cua extraction
+    # vài đoạn text thô, định dạng không đồng nhất, để kiểm tra độ tin cậy của extraction
     samples = [
         "Hi, I'm John Tran, Senior Engineer at FPT Software. "
         "Reach me at john.tran@fpt.com or call 090-123-4567.",
@@ -66,7 +80,7 @@ def main():
             print(f"Input: {text[:50]}...")
             print(f"Extracted: {data}\n")
         except anthropic.APIError as exc:
-            # bat loi API rieng cho tung sample, khong dung ca vong lap
+            # bắt lỗi API riêng cho từng sample, không dừng cả vòng lặp
             print(f"API error: {exc}")
 
 
