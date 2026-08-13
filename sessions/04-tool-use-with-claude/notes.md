@@ -12,9 +12,9 @@
 - [x] Using multiple tools
 - [x] The Batch tool
 - [x] Tools for structured data
-- [ ] Fine grained tool calling
-- [ ] The text edit tool
-- [ ] The web search tool
+- [x] Fine grained tool calling
+- [x] The text edit tool
+- [x] The web search tool
 - [ ] Quiz on tool use with Claude
 
 ## Key Concepts
@@ -290,6 +290,80 @@ So sánh 2 cách:
 | Prefill + stop sequence | Đơn giản, nhanh setup | Kém tin cậy hơn với cấu trúc phức tạp |
 | Tool + `tool_choice` ép buộc | Tin cậy cao, validate theo schema | Setup phức tạp hơn |
 
+### Fine Grained Tool Calling (streaming JSON argument của tool)
+Khi **streaming** + có tool, ngoài `content_block_delta` bình thường còn có thêm event
+`input_json_delta` chứa 2 field:
+- `partial_json`: chunk JSON mới vừa sinh ra
+- `snapshot`: bản JSON tích lũy từ đầu tới hiện tại (gộp toàn bộ chunk đã nhận)
+
+**Mặc định**: API tự **validate JSON** trước khi gửi chunk cho client — Claude sinh JSON theo
+từng phần, nhưng API chờ tới khi **đủ 1 cặp key-value hoàn chỉnh** mới validate rồi mới gửi
+→ hiện tượng: có độ trễ, sau đó chunk đổ về dồn dập (burst) thay vì mượt.
+
+**Fine-grained mode** (`fine_grained: true` trong tool schema): tắt validation phía API, gửi
+chunk ngay khi Claude sinh ra → trải nghiệm streaming mượt hơn (giống streaming text thường),
+nhưng **đổi lại** client phải tự xử lý trường hợp JSON chưa hợp lệ (vd `undefined` thay vì
+`null`) vì không còn được validate trước.
+
+| Chế độ | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Mặc định (có validate) | JSON luôn hợp lệ khi tới client | Có độ trễ, chunk dồn cục |
+| `fine_grained: true` | Streaming mượt, cập nhật UI ngay lập tức | Client phải tự bắt lỗi JSON không hợp lệ |
+
+Dùng `fine_grained` khi cần cập nhật UI theo thời gian thực ngay khi Claude đang gõ argument
+(vd hiển thị preview trong lúc Claude đang soạn); dùng mặc định khi độ trễ chấp nhận được.
+
+### The Text Editor Tool (built-in tool sửa file)
+**Text Editor Tool** = 1 trong số ít tool có **JSON schema built-in sẵn trong Claude** (không
+cần tự viết `input_schema`) — nhưng **phần thực thi (implementation) vẫn phải tự code**, Claude
+chỉ biết "yêu cầu" thao tác (view file, string replace, create file, undo...) chứ không tự thao
+tác trên máy mình.
+
+Cách dùng: chỉ cần gửi 1 **schema stub** rất gọn (chỉ `name` + `type`), API tự động expand
+thành full schema phía server:
+```python
+{"type": "text_editor_20250124", "name": "str_replace_editor"}  # type khác nhau tùy version model (3.5 vs 3.7...)
+```
+Lưu ý: `type` string đi kèm ngày tháng, khác nhau tùy version Claude model — phải tra đúng
+version đang dùng trong docs, không cố định 1 giá trị.
+
+Vẫn theo đúng flow tool use thông thường: Claude trả `tool_use` block (vd `command="str_replace"`,
+`path`, `old_str`, `new_str`) → code tự viết hàm thực thi (đọc/ghi file thật) → gửi lại
+`tool_result`. Không có sẵn code đọc/ghi file — Anthropic chỉ cung cấp *hình dạng* tool, hành vi
+thật do mình implement (đối chiếu Java: giống 1 `interface` được định nghĩa sẵn, còn `impl` là
+việc của dev).
+
+Use case: build 1 code editor tự động (kiểu Claude Code) mà không có GUI, thao tác file hàng loạt.
+
+### The Web Search Tool (built-in tool tìm kiếm web)
+**Web Search Tool** = built-in tool **không cần tự code implementation** — khác hẳn Text Editor
+Tool ở trên. Chỉ cần khai báo schema, Claude tự chạy search và trả kết quả trực tiếp trong response.
+
+Schema:
+```python
+web_search_tool = {
+    "type": "web_search_20250305",   # type cố định cho web search tool
+    "name": "web_search",
+    "max_uses": 5,                    # giới hạn tổng số lần search trong 1 request (default 5)
+    "allowed_domains": ["nih.gov"],   # optional — giới hạn search chỉ trong domain cụ thể
+}
+```
+
+`allowed_domains` hữu ích khi cần đảm bảo chất lượng nguồn (vd chỉ lấy thông tin y tế/thể dục từ
+NIH.gov thay vì web chung chung không kiểm chứng được).
+
+Response trả về nhiều loại block khác nhau, cần phân biệt khi render UI:
+| Block type | Ý nghĩa |
+|---|---|
+| Text block | Câu trả lời Claude viết cho user |
+| Tool use block | Câu query Claude đã search |
+| Web search result block | Trang tìm được (title, URL) |
+| Citation block | Đoạn text cụ thể được trích dẫn, gắn với nguồn hỗ trợ tuyên bố đó |
+
+Không giống flow tool use tự viết — **không cần** tự gửi lại `tool_result`, Claude tự chạy search
+và tự nối kết quả vào response cuối cùng trong cùng 1 lần gọi `client.messages.create()`. Có thể
+Claude search **nhiều lần** trong cùng 1 request (tối đa `max_uses`).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -299,6 +373,10 @@ So sánh 2 cách:
 | `tool_use_id` | `str` (trong tool_use / tool_result block) | — | Khóa nối kết quả tool với đúng lời gọi tool tương ứng |
 | `is_error` | `bool` (trong tool_result block) | `false` | Báo Claude biết tool chạy lỗi để nó tự điều chỉnh/retry |
 | `ToolParam` | class (`anthropic.types`) | — | Wrap dict schema để có type-check khi code |
+| `fine_grained` | `bool` (field trong tool schema) | `false` | `true` = tắt validate JSON phía API khi stream, đổi lại gửi chunk nhanh hơn |
+| `max_uses` | `int` (web_search tool schema) | `5` | Giới hạn tổng số lần Claude được search trong 1 request |
+| `allowed_domains` | `list[str]` (web_search tool schema) | không giới hạn | Giới hạn search chỉ trong các domain chỉ định |
+| `citations` | `dict` (create() param) | không bật | `{"enabled": true}` — bật trích dẫn nguồn cho response |
 
 ## Gotchas
 - [x] `tool_choice` mặc định là `{"type": "auto"}` — muốn ép gọi 1 tool cụ thể phải set
@@ -310,8 +388,13 @@ So sánh 2 cách:
 - [x] `tool_result` phải nằm trong **user message**, không phải assistant message
 - [x] Vẫn phải gửi kèm `tools` schema ở mọi request tiếp theo trong cùng hội thoại, kể cả khi
   không cần gọi tool nữa — nếu bỏ đi Claude có thể mất khả năng nhận diện các tool_use cũ trong history
-- [ ] Khi dùng `tool_choice` ép buộc để lấy structured data, **không cần** gửi `tool_result` quay
+- [x] Khi dùng `tool_choice` ép buộc để lấy structured data, **không cần** gửi `tool_result` quay
   lại — khác với luồng tool use thông thường
+- [x] Web Search Tool và Text Editor Tool đều là **built-in tool** nhưng khác nhau: Web Search
+  tự chạy luôn, không cần gửi lại `tool_result`; Text Editor chỉ có sẵn schema, phần thực thi
+  (đọc/ghi file thật) vẫn phải tự code y như tool tự định nghĩa
+- [ ] `type` của Text Editor Tool đi kèm ngày tháng khác nhau tùy version model — dùng sai version
+  dễ gây lỗi 400, phải tra đúng docs cho model đang dùng
 
 ## Code Snippets
 ```python
