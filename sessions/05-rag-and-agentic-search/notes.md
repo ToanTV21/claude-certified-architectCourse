@@ -100,6 +100,27 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
    - **Normalization**: embedding API thường tự động scale vector về magnitude = 1.0
      (nằm trên unit circle/unit sphere) — không cần tự tính toán, model lo việc này.
      Vd `[0.97, 0.34]` → normalized `[0.944, 0.331]`.
+
+     ```mermaid
+     quadrantChart
+         title Normalization - vectors nam tren unit circle (magnitude = 1.0)
+         x-axis Not about medicine --> About medicine
+         y-axis Not about software --> About software
+         quadrant-1 High both
+         quadrant-2 Software-leaning
+         quadrant-3 Low both
+         quadrant-4 Medicine-leaning
+         Software Engineering (0.295, 0.955): [0.3, 0.95]
+         Medical Research (0.944, 0.331): [0.94, 0.33]
+     ```
+
+     Hình minh họa: cả 2 vector `Software Engineering (0.295, 0.955)` và
+     `Medical Research (0.944, 0.331)` sau khi normalize đều nằm ĐÚNG trên đường tròn
+     bán kính 1.0 (unit circle) — trục X = "About medicine", trục Y = "About software".
+     Đây chính là hệ quả trực quan của bước normalization: dù giá trị các chiều khác
+     nhau, magnitude (độ dài vector) của mọi embedding sau normalize luôn bằng 1.
+     (Lưu ý: `quadrantChart` của Mermaid chỉ vẽ đúng VỊ TRÍ điểm theo tọa độ, không tự
+     vẽ đường tròn bán kính 1.0 — hãy hình dung 1 vòng tròn đi qua cả 2 điểm này.)
 3. **Store in vector database** — lưu các embedding đã chunk vào **vector database**,
    1 loại database chuyên dụng để lưu trữ, so sánh, và search trên các vector số dài.
    → Đến đây pipeline **dừng lại và chờ** user gửi query — toàn bộ bước trên là
@@ -112,6 +133,26 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
    year?" → `[0.1, 0.89]` → normalized `[0.112, 0.993]`.
 5. **Find similar embeddings** — gửi query embedding vào vector database, database trả
    về (các) chunk embedding gần nhất — chính là chunk "liên quan nhất" tới câu hỏi.
+
+   ```mermaid
+   quadrantChart
+       title Find Similar Embeddings - query gan nhat voi Software Engineering
+       x-axis Not about medicine --> About medicine
+       y-axis Not about software --> About software
+       quadrant-1 High both
+       quadrant-2 Software-leaning
+       quadrant-3 Low both
+       quadrant-4 Medicine-leaning
+       User query (0.112, 0.993): [0.11, 0.99]
+       Software Engineering (0.295, 0.955): [0.3, 0.95]
+       Medical Research (0.944, 0.331): [0.94, 0.33]
+   ```
+
+   Hình minh họa: `User query (0.112, 0.993)` được vẽ rất SÁT với
+   `Software Engineering (0.295, 0.955)` — góc giữa 2 vector này rất nhỏ — trong khi
+   `Medical Research (0.944, 0.331)` nằm lệch hẳn sang phía khác (góc lớn). Vector
+   database dựa trên độ gần này (góc nhỏ → cosine similarity cao) để trả về đúng chunk
+   "Software Engineering" làm kết quả relevant nhất cho câu hỏi của user.
    - **Cosine similarity**: đo độ tương đồng bằng cosin của góc giữa 2 vector.
      - Range: **-1 đến 1**
      - Gần **1** → rất giống nhau (giống hướng)
