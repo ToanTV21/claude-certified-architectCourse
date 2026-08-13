@@ -201,6 +201,51 @@ Kiến trúc vòng lặp (3 hàm chính):
 Đối chiếu Java: giống pattern `switch` dispatch theo command name (Command Pattern), vòng lặp
 tương tự event loop xử lý cho tới khi nhận "done" signal.
 
+**Refactor helper functions cho conversation loop** — trước khi implement `run_conversation()`
+gọn gàng, course refactor lại 3 chỗ:
+
+1. **`add_user_message` / `add_assistant_message` nhận cả `Message` object** — không chỉ str
+   hay list block như trước, mà còn nhận thẳng response trả về từ `client.messages.create()`,
+   tự `isinstance(message, Message)` để lấy `.content` ra:
+   ```python
+   from anthropic.types import Message
+
+   def add_user_message(messages, message):
+       user_message = {
+           "role": "user",
+           "content": message.content if isinstance(message, Message) else message,
+       }
+       messages.append(user_message)
+   ```
+   Đối chiếu Java: giống method overload nhận nhiều kiểu tham số, tự branch xử lý theo
+   runtime type (`instanceof` check) thay vì bắt caller phải tự `.content` trước khi gọi.
+
+2. **`chat()` nhận thêm `tools` param, trả về full `Message`** (không ép về text nữa) —
+   để giữ lại `tool_use` block cho vòng lặp xử lý tiếp:
+   ```python
+   def chat(messages, system=None, temperature=1.0, stop_sequences=[], tools=None):
+       params = {
+           "model": model, "max_tokens": 1000, "messages": messages,
+           "temperature": temperature, "stop_sequences": stop_sequences,
+       }
+       if tools:
+           params["tools"] = tools
+       if system:
+           params["system"] = system
+       return client.messages.create(**params)
+   ```
+
+3. **`text_from_message()`** — helper tách text ra khi cần hiển thị cho user (vì `chat()`
+   giờ trả `Message` chứ không phải string nữa):
+   ```python
+   def text_from_message(message):
+       return "\n".join(block.text for block in message.content if block.type == "text")
+   ```
+
+Xem implementation đầy đủ (bài toán "103 ngày nữa là ngày nào?", cần 2 tool nối tiếp
+`get_current_datetime` → `add_duration_to_datetime`) trong
+[10_conversation_loop_chat_helper.py](exercises/10_conversation_loop_chat_helper.py).
+
 ### Using Multiple Tools (thêm tool mới vào hệ thống có sẵn)
 Sau khi đã có khung sườn (tool schema + dispatcher + tool function), thêm 1 tool mới chỉ cần
 3 bước lặp lại pattern:
