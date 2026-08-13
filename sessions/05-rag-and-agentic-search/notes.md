@@ -6,7 +6,7 @@
 - [x] Text embeddings
 - [x] The full RAG flow
 - [x] Implementing the RAG flow
-- [ ] BM25 lexical search
+- [x] BM25 lexical search
 - [ ] A Multi-Index RAG pipeline
 
 ## Key Concepts
@@ -170,9 +170,62 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
 **Lưu ý:** lesson này nói "vẫn còn case chưa xử lý tốt" — sẽ được cải thiện ở các
 lesson sau (BM25, Multi-Index pipeline).
 
+### 6. BM25 lexical search
+**Vấn đề của semantic search đơn thuần:** semantic search (dựa trên embedding) rất giỏi
+hiểu ý nghĩa/context, nhưng có thể **miss exact term match**. Ví dụ: user search 1 mã
+incident cụ thể như `"INC-2023-Q4-011"` — semantic search có thể trả về section
+"Cybersecurity" (đúng, có chứa mã này) LẪN section "Financial Analysis" (SAI, không hề
+nhắc tới mã này) — vì semantic search quan tâm "conceptual similarity" chứ không quan
+tâm việc term đó có thực sự xuất hiện trong text hay không.
+
+**Giải pháp — Hybrid search:** chạy song song 2 loại search rồi merge kết quả:
+- **Semantic search** — tìm nội dung liên quan về mặt ý nghĩa (dùng embeddings)
+- **Lexical search** — tìm exact term match (dùng classic text search, vd BM25)
+- **Merged results** — kết hợp cả 2 để có kết quả chính xác hơn (lesson sau sẽ học
+  cách merge — "A Multi-Index RAG pipeline")
+
+**BM25 (Best Match 25)** là thuật toán phổ biến nhất cho lexical search trong RAG. Cách
+hoạt động khi xử lý 1 query:
+1. **Tokenize query** — tách câu hỏi thành từng term riêng lẻ. Vd `"a INC-2023-Q4-011"`
+   → `["a", "INC-2023-Q4-011"]`.
+2. **Đếm term frequency** — đếm mỗi term xuất hiện bao nhiêu lần trong TOÀN BỘ tập
+   documents. Từ phổ biến như `"a"` có thể xuất hiện 5 lần, trong khi term đặc thù như
+   `"INC-2023-Q4-011"` chỉ xuất hiện 1 lần.
+3. **Weight term theo độ quan trọng** — term xuất hiện CÀNG ÍT thì được coi CÀNG quan
+   trọng (importance score cao). `"a"` có importance thấp (quá phổ biến, không mang
+   nhiều thông tin phân biệt); `"INC-2023-Q4-011"` có importance cao (hiếm, đặc thù).
+   → Đây chính là ý tưởng **IDF (Inverse Document Frequency)**: term hiếm → giá trị cao.
+4. **Tìm best match** — trả về document chứa NHIỀU instance của các term có weight cao
+   nhất.
+
+**Điểm mạnh của BM25:**
+- Weight cao hơn cho term hiếm, đặc thù
+- Bỏ qua (ít quan tâm) các từ phổ biến không mang giá trị phân biệt
+- Tập trung vào **term frequency**, không quan tâm "ý nghĩa" ngữ cảnh
+- Đặc biệt hiệu quả với technical terms, ID, mã số, cụm từ cụ thể — đúng những case mà
+  semantic search hay bỏ sót
+
+**Insight chính:** semantic search và lexical search (BM25) có điểm mạnh BỔ SUNG cho
+nhau (complementary) — semantic hiểu context/ý nghĩa, lexical đảm bảo không bỏ sót exact
+match. Kết hợp cả 2 tạo ra hệ thống search robust hơn, xử lý tốt cả câu hỏi mang tính khái
+niệm (conceptual) lẫn tra cứu cụ thể (specific lookup).
+
+**Interface `BM25Index` (tương tự `VectorIndex` ở mục 5, để dễ hoán đổi/merge sau này):**
+```python
+chunks = chunk_by_section(text)          # 1. chunk text theo section (tai su dung)
+store = BM25Index()                      # 2. tao BM25 store
+for chunk in chunks:
+    store.add_document({"content": chunk})
+results = store.search("What happened with INC-2023-Q4-011?", 3)   # 3. search top-3
+for doc, distance in results:
+    print(distance, "\n", doc["content"][:200], "\n----\n")
+```
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
+| `BM25Index.add_document(metadata)` | method (tự viết) | — | Thêm 1 document (dict có `content`) vào BM25 index — index sẽ tự tokenize nội dung |
+| `BM25Index.search(query, k)` | method (tự viết) | — | Trả về `k` document có BM25 score cao nhất, dạng `(doc, distance)` giống interface `VectorIndex` |
 | `re.split(pattern, text)` | function | — | Structure-based chunking: split theo header pattern (vd `r"\n## "`) |
 | `re.split(r"(?<=[.!?])\s+", text)` | function | — | Sentence-based chunking: split câu bằng lookbehind trên dấu câu kết thúc |
 | `voyageai.Client()` | class | — | Client cho VoyageAI embedding API, đọc `VOYAGE_API_KEY` từ env |
@@ -191,6 +244,8 @@ lesson sau (BM25, Multi-Index pipeline).
 - [ ] Cosine similarity range là [-1, 1], KHÔNG phải [0, 1] — dễ nhầm với các loại similarity score khác (vd Jaccard)
 - [ ] `VectorIndex.search()` trả về **cosine distance**, không phải similarity — logic NGƯỢC lại (distance thấp = liên quan cao), dễ đọc nhầm khi debug
 - [ ] Luôn lưu text gốc (metadata) kèm embedding trong vector store — chỉ có embedding number thì không dùng lại được để build prompt cho Claude
+- [ ] BM25 score gốc là "cao hơn = liên quan hơn" (ngược với cosine distance) — nếu muốn interface giống `VectorIndex.search()` (sort tăng dần theo "distance") thì phải tự đảo dấu (vd trả về `-score`), lesson dùng chung tên biến `distance` cho cả 2 nhưng bản chất công thức khác nhau, dễ nhầm
+- [ ] BM25 chỉ match token CHÍNH XÁC (sau khi tokenize) — không hiểu synonym/ý nghĩa, nên vẫn cần semantic search song song cho câu hỏi mang tính khái niệm
 
 ## Code Snippets
 ```python
