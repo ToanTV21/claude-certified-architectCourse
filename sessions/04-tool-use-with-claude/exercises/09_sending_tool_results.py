@@ -8,9 +8,12 @@ Objective: Minh hoạ đúng luồng "Sending tool results" trong course — ext
     phải khớp đúng tool_use_id cho từng tool_result tương ứng.
 """
 
+import sys  # dùng để ép stdout in UTF-8, tránh lỗi UnicodeEncodeError trên terminal Windows (cp1252)
 from dotenv import load_dotenv  # load biến môi trường từ file .env, không hardcode API key
 import anthropic  # SDK chính thức để gọi Claude API
 from anthropic.types import ToolParam  # wrap dict schema để bắt lỗi type sớm ở dev-time
+
+sys.stdout.reconfigure(encoding="utf-8")  # cho phép print() tiếng Việt có dấu an toàn trên mọi terminal
 
 load_dotenv()  # đọc ANTHROPIC_API_KEY từ .env
 client = anthropic.Anthropic()  # khởi tạo client dùng chung cho cả file
@@ -24,6 +27,7 @@ def add_user_message(messages: list, content) -> None:
     content có thể là str (câu hỏi thường) hoặc list block (vd list các tool_result
     block khi trả kết quả tool về cho Claude).
     """
+    print(f"[LOG] add_user_message -> content={content!r}")
     messages.append({"role": "user", "content": content})
 
 
@@ -33,6 +37,7 @@ def add_assistant_message(messages: list, content) -> None:
     content thường chính là response.content — list block (text + tool_use) —
     phải giữ nguyên toàn bộ, không được chỉ lấy phần text.
     """
+    print(f"[LOG] add_assistant_message -> {len(content)} block(s)")
     messages.append({"role": "assistant", "content": content})
 
 
@@ -75,7 +80,9 @@ def run_tool(tool_name: str, tool_input: dict):
     if tool_name == "add_numbers":
         # **tool_input unpack dict thành keyword argument cho hàm add_numbers(a, b)
         # vì hàm expect keyword argument, không nhận thẳng 1 dict
-        return add_numbers(**tool_input)
+        result = add_numbers(**tool_input)
+        print(f"[LOG] run_tool -> add_numbers(**{tool_input}) = {result}")
+        return result
     raise ValueError(f"Unknown tool: {tool_name}")
 
 
@@ -122,6 +129,7 @@ def main():
     messages = []
     # Câu hỏi cố ý yêu cầu 2 phép tính -> Claude thường trả về 2 tool_use block
     # trong cùng 1 response, minh hoạ rõ việc phải khớp tool_use_id cho từng cái
+    print("[STEP 1] Gửi user message ban đầu kèm khai báo tools")
     add_user_message(messages, "What's 10 + 10 and what's 30 + 30?")
 
     try:
@@ -132,20 +140,29 @@ def main():
             messages=messages,
             tools=[add_numbers_schema],
         )
+        print(f"[STEP 2] Nhận assistant response — stop_reason={response.stop_reason!r}, "
+              f"{len(response.content)} block(s)")
+        for block in response.content:
+            print(f"          block.type={block.type!r}")
 
         if response.stop_reason == "tool_use":
             # Bước: append TOÀN BỘ response.content (không chỉ text) làm assistant message,
             # vì lịch sử hội thoại cần đủ context về các tool_use đã yêu cầu
+            print("[STEP 3] Append toàn bộ response.content vào history (assistant message)")
             add_assistant_message(messages, response.content)
 
             # Chạy hết các tool_use block, gom thành list tool_result block
+            print("[STEP 4] Thực thi từng tool_use block -> gom tool_result block")
             tool_results = run_tools(response)
+            print(f"          -> tool_results = {tool_results}")
 
             # tool_result phải nằm trong 1 USER message mới, không phải assistant message
+            print("[STEP 5] Gửi tool_result(s) trong 1 user message mới")
             add_user_message(messages, tool_results)
 
             # Request tiếp theo: vẫn phải kèm tools schema dù không mong Claude
             # gọi tool nữa -- Claude cần schema để hiểu các tool_use trong history
+            print("[STEP 6] Gửi request tiếp theo (kèm full history + tools schema)")
             final_response = client.messages.create(
                 model=MODEL,
                 max_tokens=1000,
@@ -155,9 +172,11 @@ def main():
             final_text = next(
                 (b.text for b in final_response.content if b.type == "text"), ""
             )
+            print(f"[STEP 7] Nhận câu trả lời cuối cùng từ Claude")
             print(f"\nFinal answer: {final_text}")
         else:
             # Trường hợp Claude không cần gọi tool (hiếm với prompt này)
+            print("[STEP 3] Claude không cần gọi tool, trả lời thẳng")
             print(response.content[0].text)
     except anthropic.APIError as exc:
         # bắt lỗi API để không crash chương trình
