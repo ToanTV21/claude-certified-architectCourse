@@ -10,3 +10,7 @@
   real tools in a single message instead of sequential round-trips.
 - `05_structured_data_tool.py` — Force Claude to always call one tool via
   `tool_choice` to reliably extract structured (JSON) data from free text.
+- `09_sending_tool_results.py` — Focused walkthrough of "Sending tool results":
+  extracting `tool_use.input`, unpacking `**kwargs`, building `tool_result` blocks
+  (`tool_use_id` / `content` / `is_error`), and matching results when Claude
+  requests multiple tool calls in a single message.
