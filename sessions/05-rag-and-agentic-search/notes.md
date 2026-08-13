@@ -7,7 +7,7 @@
 - [x] The full RAG flow
 - [x] Implementing the RAG flow
 - [x] BM25 lexical search
-- [ ] A Multi-Index RAG pipeline
+- [x] A Multi-Index RAG pipeline
 
 ## Key Concepts
 
@@ -221,9 +221,69 @@ for doc, distance in results:
     print(distance, "\n", doc["content"][:200], "\n----\n")
 ```
 
+### 7. A Multi-Index RAG pipeline
+Lesson cuối của session — ghép `VectorIndex` (semantic, mục 5) và `BM25Index` (lexical,
+mục 6) lại thành **1 pipeline hybrid duy nhất**.
+
+- **Vì sao ghép được dễ dàng:** cả `VectorIndex` và `BM25Index` đều có chung **API**:
+  `add_document()` và `search()` — đây chính là ví dụ thực tế của nguyên lý
+  **"program to an interface, not an implementation"**. Nhờ interface giống nhau, ta
+  viết được 1 class bọc ngoài (`Retriever`) mà không cần biết bên trong mỗi index hoạt
+  động thế nào.
+- **`Retriever`** đóng vai trò coordinator: forward query tới TẤT CẢ các index đã đăng
+  ký, gom kết quả trả về, rồi **merge** bằng kỹ thuật **Reciprocal Rank Fusion (RRF)**.
+
+**Vì sao không thể ghép đơn giản (concatenate) 2 list kết quả?** Vì mỗi search method
+dùng hệ thống điểm số khác nhau và không tương thích (BM25 score không cùng thang đo với
+cosine distance) — cần 1 cách **normalize + combine ranking** công bằng giữa các nguồn.
+
+**Reciprocal Rank Fusion (RRF)** giải quyết bài toán trên bằng cách CHỈ dựa vào **rank**
+(thứ hạng, 1 = tốt nhất) của document trong từng index, KHÔNG dùng score gốc (nên không
+cần lo 2 score khác thang đo nhau):
+
+```
+RRF_score(d) = Σ 1 / (k + rank_i(d))
+```
+- `d`: 1 document/chunk cụ thể
+- `rank_i(d)`: thứ hạng của `d` trong index thứ `i` (rank 1 = xếp hạng cao nhất ở index đó)
+- `k`: hằng số làm mượt (smoothing constant) — thường dùng `60` trong thực tế (giảm ảnh
+  hưởng của rank 1 quá mạnh so với rank 2, 3...); lesson dùng `k=1` để số liệu dễ nhìn
+  hơn khi minh họa
+- Document nào KHÔNG xuất hiện trong 1 index nào đó thì đơn giản KHÔNG cộng phần đó vào
+  tổng (không bị phạt bằng 0, chỉ là thiếu 1 số hạng)
+
+**Ví dụ minh họa (k=1):** query `"INC-2023-Q4-011"` cho ra:
+- VectorIndex rank: Section 2 (1), Section 7 (2), Section 6 (3)
+- BM25Index rank: Section 6 (1), Section 2 (2), Section 7 (3)
+
+| Document | RRF score | Tính toán |
+|----------|-----------|-----------|
+| Section 2 | **0.833** | `1/(1+1) + 1/(1+2)` = 0.5 + 0.333 |
+| Section 6 | 0.75 | `1/(1+3) + 1/(1+1)` = 0.25 + 0.5 |
+| Section 7 | 0.583 | `1/(1+2) + 1/(1+3)` = 0.333 + 0.25 |
+
+→ Section 2 lên đầu vì nó **xếp hạng tốt ở CẢ 2 index** (rank 1 ở Vector, rank 2 ở
+BM25) — đúng trực giác: document càng nhất quán được cả 2 phương pháp đánh giá cao thì
+càng đáng tin cậy.
+
+**Kết quả thực tế khi test hybrid vs vector-only:** với query về incident ID, vector-only
+search từng trả về nhầm "Financial Analysis" ở vị trí thứ 2 (vì thiếu exact-match).
+Retriever hybrid (Vector + BM25 qua RRF) trả về đúng thứ tự theo độ liên quan thật:
+Cybersecurity → Software Engineering → Legal Developments — không còn lẫn section không
+liên quan.
+
+**Tính mở rộng (extensibility):** vì mọi index đều tuân theo cùng **`SearchIndex`
+protocol** (`add_document()` + `search()`), có thể thêm bất kỳ search method mới nào
+(keyword-based, graph-based, domain-specific...) vào `Retriever` mà không cần sửa code
+hiện có — chỉ cần implement đúng interface.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
+| `Retriever(*indexes)` | class (tự viết) | — | Nhận nhiều index (`VectorIndex`, `BM25Index`, ...) qua `*args`, raise `ValueError` nếu không có index nào |
+| `Retriever.add_document(doc)` | method | — | Forward document tới TẤT CẢ index đã đăng ký (mỗi index tự lưu theo cách riêng) |
+| `Retriever.search(query, k, k_rrf)` | method | k=1, k_rrf=60 | Search song song trên mọi index, merge bằng RRF, trả về top-`k` sau khi sort theo RRF score giảm dần |
+| RRF formula | công thức | `k=60` (mặc định thực tế) | `Σ 1/(k + rank_i(d))` — chỉ dùng rank, không dùng score gốc, nên merge được cross-method |
 | `BM25Index.add_document(metadata)` | method (tự viết) | — | Thêm 1 document (dict có `content`) vào BM25 index — index sẽ tự tokenize nội dung |
 | `BM25Index.search(query, k)` | method (tự viết) | — | Trả về `k` document có BM25 score cao nhất, dạng `(doc, distance)` giống interface `VectorIndex` |
 | `re.split(pattern, text)` | function | — | Structure-based chunking: split theo header pattern (vd `r"\n## "`) |
@@ -246,6 +306,8 @@ for doc, distance in results:
 - [ ] Luôn lưu text gốc (metadata) kèm embedding trong vector store — chỉ có embedding number thì không dùng lại được để build prompt cho Claude
 - [ ] BM25 score gốc là "cao hơn = liên quan hơn" (ngược với cosine distance) — nếu muốn interface giống `VectorIndex.search()` (sort tăng dần theo "distance") thì phải tự đảo dấu (vd trả về `-score`), lesson dùng chung tên biến `distance` cho cả 2 nhưng bản chất công thức khác nhau, dễ nhầm
 - [ ] BM25 chỉ match token CHÍNH XÁC (sau khi tokenize) — không hiểu synonym/ý nghĩa, nên vẫn cần semantic search song song cho câu hỏi mang tính khái niệm
+- [ ] RRF dùng RANK, không dùng score gốc — nên khi merge, KHÔNG cần lo scale/normalize cosine distance vs BM25 score cho khớp nhau, chỉ cần thứ hạng (1st, 2nd, 3rd...) của mỗi index
+- [ ] Hằng số `k` trong RRF thường là 60 trong thực tế (giảm chênh lệch giữa rank 1 và các rank sau), không phải luôn luôn 1 — lesson chỉ dùng `k=1` để minh họa số cho dễ tính tay
 
 ## Code Snippets
 ```python
