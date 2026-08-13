@@ -53,8 +53,8 @@ fpt-claude-study/
 | 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | ✅ Done |
 | 03 | `sessions/03-prompt-engineering-techniques/` | Prompt Engineering Techniques | ✅ Done |
 | 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | ✅ Done |
-| 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ⬜ Todo |
-| 06 | `sessions/06-features-of-claude/` | Features of Claude | ⬜ Todo |
+| 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ✅ Done |
+| 06 | `sessions/06-features-of-claude/` | Features of Claude | 🔄 In Progress |
 | 07 | `sessions/07-model-context-protocol/` | Model Context Protocol | ⬜ Todo |
 | 08 | `sessions/08-anthropic-apps-claude-code/` | Anthropic Apps — Claude Code & Computer Use | ⬜ Todo |
 | 09 | `sessions/09-agents-and-workflows/` | Agents and Workflows | ⬜ Todo |
