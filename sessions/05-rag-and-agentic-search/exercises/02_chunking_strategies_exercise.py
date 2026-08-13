@@ -1,12 +1,23 @@
 """
 Exercise 02: Text chunking strategies
 Session: RAG and Agentic Search
-Objective: Cai dat 3 chien luoc chunking (size-based, structure-based,
-sentence-based) tren cung 1 doan van ban mau, roi so sanh ket qua de thay
-tradeoff giua cac cach chunk khac nhau.
+Objective: Cai dat 4 chien luoc chunking (size-based, structure-based,
+sentence-based, semantic-based) tren cung 1 doan van ban mau, roi so sanh
+ket qua de thay tradeoff giua cac cach chunk khac nhau.
+Semantic-based chunking dung VoyageAI embeddings de do do "gan nghia" giua
+2 cau lien tiep (cosine similarity) — cau nao lech chu de qua nhieu se bi
+tach thanh chunk moi, thay vi chi dua vao so ky tu/so cau co dinh.
 """
 
 import re  # dung regex de split text theo pattern (header, dau cau...)
+import numpy as np  # dung de tinh cosine similarity giua 2 embedding vector
+from dotenv import load_dotenv  # doc VOYAGE_API_KEY tu file .env
+import voyageai  # SDK chinh thuc cua VoyageAI, dung de tao embedding
+
+load_dotenv()  # nap VOYAGE_API_KEY vao os.environ
+voyage_client = voyageai.Client()  # client tu doc VOYAGE_API_KEY tu os.environ
+
+EMBED_MODEL = "voyage-3.5-lite"  # model embedding re, du dung cho bai tap nay
 
 
 # Van ban mau co structure ro rang (Markdown-style headers) de test ca 3 chien luoc
@@ -98,6 +109,53 @@ def chunk_by_sentence(
     return chunks
 
 
+def cosine_similarity(vec_a: list, vec_b: list) -> float:
+    """Tinh do tuong dong cosine giua 2 vector — cang gan 1.0 thi cang gan nghia."""
+    # vec_a, vec_b: list[float] — 2 embedding vector can so sanh (cung so chieu)
+    a = np.array(vec_a)  # convert list -> numpy array de tinh toan nhanh hon
+    b = np.array(vec_b)
+    # cong thuc cosine similarity: dot(a, b) / (|a| * |b|)
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+
+def chunk_by_semantic(text: str, similarity_threshold: float = 0.65) -> list:
+    """Semantic-based chunking: tach cau lien tiep thanh chunk moi khi do
+    tuong dong nghia (cosine similarity) giua 2 cau giam xuong duoi nguong."""
+    # text: str — van ban can chunk
+    # similarity_threshold: float — nguong cosine similarity (0..1), duoi nguong
+    # nay thi coi nhu 2 cau da lech chu de -> tach chunk moi
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+    print(f"[chunk_by_semantic] Bat dau: tach duoc {len(sentences)} cau, similarity_threshold={similarity_threshold}")
+
+    if len(sentences) <= 1:
+        return sentences
+
+    print(f"[chunk_by_semantic] Goi VoyageAI embed {len(sentences)} cau (model={EMBED_MODEL}) ...")
+    result = voyage_client.embed(sentences, model=EMBED_MODEL, input_type="document")
+    embeddings = result.embeddings  # list cac vector, 1 vector / 1 cau, cung thu tu voi `sentences`
+    print(f"[chunk_by_semantic] Embed xong, moi vector co {len(embeddings[0])} chieu, tong token={result.total_tokens}")
+
+    chunks = []
+    current_chunk = [sentences[0]]  # chunk hien tai, bat dau tu cau dau tien
+
+    for i in range(1, len(sentences)):
+        sim = cosine_similarity(embeddings[i - 1], embeddings[i])  # so sanh cau (i-1) va cau i
+        print(f"[chunk_by_semantic] Cau {i - 1} vs Cau {i}: similarity={sim:.4f}")
+
+        if sim < similarity_threshold:
+            # do tuong dong thap -> chu de lech -> dong chunk hien tai, mo chunk moi
+            print(f"[chunk_by_semantic]   -> similarity < {similarity_threshold}, tach chunk moi truoc cau {i}")
+            chunks.append(" ".join(current_chunk))
+            current_chunk = [sentences[i]]
+        else:
+            # con lien quan chu de -> gop tiep vao chunk hien tai
+            current_chunk.append(sentences[i])
+
+    chunks.append(" ".join(current_chunk))  # dong chunk cuoi cung con dang mo
+    print(f"[chunk_by_semantic] Hoan tat: tong {len(chunks)} chunk(s)")
+    return chunks
+
+
 def main():
     print("=== Size-based chunking (chunk_size=150, overlap=20) ===")
     for i, c in enumerate(chunk_by_char(SAMPLE_DOCUMENT, chunk_size=150, chunk_overlap=20)):
@@ -110,6 +168,14 @@ def main():
     print("=== Sentence-based chunking (5 cau/chunk, overlap 1 cau) ===")
     for i, c in enumerate(chunk_by_sentence(SAMPLE_DOCUMENT, max_sentences_per_chunk=2, overlap_sentences=1)):
         print(f"[Chunk {i}] {c!r}\n")
+
+    print("=== Semantic-based chunking (VoyageAI embeddings, threshold=0.65) ===")
+    try:
+        for i, c in enumerate(chunk_by_semantic(SAMPLE_DOCUMENT, similarity_threshold=0.65)):
+            print(f"[Chunk {i}] {c!r}\n")
+    except Exception as exc:
+        # bat loi API (sai key, het quota, network...) de khong crash toan bo script
+        print(f"[chunk_by_semantic] Loi khi goi VoyageAI API: {exc}")
 
 
 if __name__ == "__main__":
