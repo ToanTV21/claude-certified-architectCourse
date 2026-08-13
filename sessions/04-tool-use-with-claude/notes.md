@@ -186,8 +186,20 @@ ngày nào" → cần gọi `get_current_datetime` trước rồi mới gọi `a
 Không thể đoán trước cần bao nhiêu vòng gọi tool → phải dùng **while loop** lặp cho tới khi
 Claude không còn yêu cầu tool nữa.
 
-Field quan trọng: **`stop_reason`** trên response — nếu `stop_reason == "tool_use"` nghĩa là
-Claude còn muốn gọi tool, ngược lại thì đó là câu trả lời cuối cùng.
+Field quan trọng: **`stop_reason`** trên response — cho biết *tại sao* Claude ngừng sinh text.
+Nếu `stop_reason == "tool_use"` nghĩa là Claude còn muốn gọi tool → phải lặp tiếp; các giá trị
+khác đều coi là kết thúc vòng lặp (Claude đã xong, dù xong theo cách nào):
+
+| `stop_reason` | Ý nghĩa |
+|---|---|
+| `"tool_use"` | Claude quyết định cần gọi 1 (hoặc nhiều) tool trước khi trả lời tiếp |
+| `"end_turn"` | Claude đã sinh xong assistant message — trường hợp kết thúc bình thường |
+| `"max_tokens"` | Chạm giới hạn `max_tokens`, Claude bị cắt ngang, không sinh thêm được nữa |
+| `"stop_sequence"` | Claude gặp đúng 1 trong các `stop_sequences` đã khai báo, dừng lại |
+
+Đối chiếu Java: giống 1 `enum ExitReason` trả về từ 1 vòng lặp/state machine — khác với chỉ có
+1 flag `done: boolean`, ở đây biết luôn *lý do* dừng để xử lý khác nhau (vd `max_tokens` nên cảnh
+báo/log riêng vì output có thể bị cắt cụt giữa chừng, không giống 1 câu trả lời hoàn chỉnh).
 
 Kiến trúc vòng lặp (3 hàm chính):
 - `run_conversation(messages)`: gọi Claude → append response vào history → check `stop_reason`,
@@ -369,7 +381,7 @@ Claude search **nhiều lần** trong cùng 1 request (tối đa `max_uses`).
 |------|------|---------|-------|
 | `tools` | `list[dict]` (create()) | không truyền | Khai báo danh sách tool khả dụng cho Claude |
 | `tool_choice` | `dict` (create()) | `{"type": "auto"}` | `{"type": "tool", "name": "..."}` ép Claude luôn gọi đúng 1 tool cụ thể |
-| `stop_reason` | `str` (response field) | — | `"tool_use"` = Claude còn muốn gọi tool, cần lặp tiếp |
+| `stop_reason` | `str` (response field) | — | `"tool_use"` / `"end_turn"` / `"max_tokens"` / `"stop_sequence"` — chỉ `"tool_use"` cần lặp tiếp |
 | `tool_use_id` | `str` (trong tool_use / tool_result block) | — | Khóa nối kết quả tool với đúng lời gọi tool tương ứng |
 | `is_error` | `bool` (trong tool_result block) | `false` | Báo Claude biết tool chạy lỗi để nó tự điều chỉnh/retry |
 | `ToolParam` | class (`anthropic.types`) | — | Wrap dict schema để có type-check khi code |
