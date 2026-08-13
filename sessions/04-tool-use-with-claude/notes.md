@@ -332,12 +332,25 @@ chỉ biết "yêu cầu" thao tác (view file, string replace, create file, und
 tác trên máy mình.
 
 Cách dùng: chỉ cần gửi 1 **schema stub** rất gọn (chỉ `name` + `type`), API tự động expand
-thành full schema phía server:
+thành full schema phía server. Bảng version schema theo model (tra đúng docs
+[text-editor-tool](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/text-editor-tool),
+không được cố định 1 giá trị vì `type` đi kèm ngày tháng khác nhau tùy version model):
+
+| Model | `type` | `name` |
+|---|---|---|
+| Claude 4.x (Opus/Sonnet/Haiku 4.5, kể cả `claude-haiku-4-5` project này đang dùng) | `text_editor_20250728` | `str_replace_based_edit_tool` |
+| Claude Sonnet 3.7 | `text_editor_20250124` | `str_replace_editor` |
+| Claude Sonnet 3.5 | `text_editor_20241022` | `str_replace_editor` |
+
 ```python
-{"type": "text_editor_20250124", "name": "str_replace_editor"}  # type khác nhau tùy version model (3.5 vs 3.7...)
+# Model hiện tại của project là claude-haiku-4-5 -> dùng schema Claude 4.x
+text_editor_tool = {"type": "text_editor_20250728", "name": "str_replace_based_edit_tool"}
 ```
-Lưu ý: `type` string đi kèm ngày tháng, khác nhau tùy version Claude model — phải tra đúng
-version đang dùng trong docs, không cố định 1 giá trị.
+
+**Lưu ý quan trọng:** trên Claude 4.x, **cả 2 field `type` lẫn `name` đều phải đổi cùng lúc**
+— chỉ đổi `type` mà giữ `name="str_replace_editor"` (name cũ của bản 3.x) sẽ bị lỗi 400.
+Ngoài ra bản 4.x **không còn hỗ trợ command `undo_edit`** (có ở bản 3.x) — nếu code implementation
+có xử lý command này thì bản 4.x sẽ không bao giờ nhận được request đó từ Claude.
 
 Vẫn theo đúng flow tool use thông thường: Claude trả `tool_use` block (vd `command="str_replace"`,
 `path`, `old_str`, `new_str`) → code tự viết hàm thực thi (đọc/ghi file thật) → gửi lại
@@ -345,7 +358,24 @@ Vẫn theo đúng flow tool use thông thường: Claude trả `tool_use` block 
 thật do mình implement (đối chiếu Java: giống 1 `interface` được định nghĩa sẵn, còn `impl` là
 việc của dev).
 
+Các `command` khả dụng trên bản 4.x (`str_replace_based_edit_tool`):
+| `command` | Input | Hành động |
+|---|---|---|
+| `view` | `path`, optional `view_range` | Xem nội dung file hoặc liệt kê thư mục |
+| `create` | `path`, `file_text` | Tạo mới/ghi đè file |
+| `str_replace` | `path`, `old_str`, `new_str` | Thay thế đúng 1 chỗ khớp — lỗi nếu khớp 0 hoặc >1 lần |
+| `insert` | `path`, `insert_line`, `insert_text` | Chèn text sau dòng `insert_line` (0 = đầu file) |
+
+**Security khi tự implement:** `path` là input do Claude (model output) sinh ra — **không đáng
+tin cậy**. Phải resolve `path` về dạng canonical rồi kiểm tra nó còn nằm trong 1 thư mục gốc cố
+định trước khi đọc/ghi (chặn `../`, symlink, absolute path ra ngoài root) — tương tự lỗi path
+traversal trong Java nếu dùng thẳng `new File(userInput)` không validate.
+
 Use case: build 1 code editor tự động (kiểu Claude Code) mà không có GUI, thao tác file hàng loạt.
+
+Xem implementation đầy đủ trong
+[12_text_editor_tool.py](exercises/12_text_editor_tool.py) — minh họa `view`, `create`,
+`str_replace`, `insert`, kèm sandbox path validation.
 
 ### The Web Search Tool (built-in tool tìm kiếm web)
 **Web Search Tool** = built-in tool **không cần tự code implementation** — khác hẳn Text Editor
@@ -405,8 +435,10 @@ Claude search **nhiều lần** trong cùng 1 request (tối đa `max_uses`).
 - [x] Web Search Tool và Text Editor Tool đều là **built-in tool** nhưng khác nhau: Web Search
   tự chạy luôn, không cần gửi lại `tool_result`; Text Editor chỉ có sẵn schema, phần thực thi
   (đọc/ghi file thật) vẫn phải tự code y như tool tự định nghĩa
-- [ ] `type` của Text Editor Tool đi kèm ngày tháng khác nhau tùy version model — dùng sai version
-  dễ gây lỗi 400, phải tra đúng docs cho model đang dùng
+- [x] `type` của Text Editor Tool đi kèm ngày tháng khác nhau tùy version model — dùng sai version
+  dễ gây lỗi 400, phải tra đúng docs cho model đang dùng. Trên Claude 4.x, `name` cũng đổi theo
+  (`str_replace_based_edit_tool`, không phải `str_replace_editor` của bản 3.x) — đổi `type` mà
+  quên đổi `name` (hoặc ngược lại) đều bị lỗi 400. Bản 4.x cũng bỏ command `undo_edit`.
 - [x] `content` trong `tool_result` block nên dùng `json.dumps(tool_output)` thay vì `str(result)`
   khi tool trả về `dict`/`list` — `str()` cho ra Python repr (dấu `'` thay vì `"`) không phải JSON
   hợp lệ, Claude vẫn đọc được nhưng dễ nhầm lẫn/parse sai nếu code phía sau cố `json.loads` lại
