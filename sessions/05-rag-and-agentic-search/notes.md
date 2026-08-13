@@ -110,8 +110,8 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
          quadrant-2 Software-leaning
          quadrant-3 Low both
          quadrant-4 Medicine-leaning
-         Software Engineering (0.295, 0.955): [0.3, 0.95]
-         Medical Research (0.944, 0.331): [0.94, 0.33]
+         "Software Engineering (0.295, 0.955)": [0.3, 0.95]
+         "Medical Research (0.944, 0.331)": [0.94, 0.33]
      ```
 
      Hình minh họa: cả 2 vector `Software Engineering (0.295, 0.955)` và
@@ -143,9 +143,9 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
        quadrant-2 Software-leaning
        quadrant-3 Low both
        quadrant-4 Medicine-leaning
-       User query (0.112, 0.993): [0.11, 0.99]
-       Software Engineering (0.295, 0.955): [0.3, 0.95]
-       Medical Research (0.944, 0.331): [0.94, 0.33]
+       "User query (0.112, 0.993)": [0.11, 0.99]
+       "Software Engineering (0.295, 0.955)": [0.3, 0.95]
+       "Medical Research (0.944, 0.331)": [0.94, 0.33]
    ```
 
    Hình minh họa: `User query (0.112, 0.993)` được vẽ rất SÁT với
