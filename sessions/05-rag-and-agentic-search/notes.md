@@ -5,7 +5,7 @@
 - [x] Text chunking strategies
 - [x] Text embeddings
 - [x] The full RAG flow
-- [ ] Implementing the RAG flow
+- [x] Implementing the RAG flow
 - [ ] BM25 lexical search
 - [ ] A Multi-Index RAG pipeline
 
@@ -131,6 +131,45 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
 `→ (chờ query) → Embed query (cùng model) → Cosine similarity search trong vector DB
 → Lấy chunk gần nhất → Ghép prompt (question + chunk) → Gửi Claude → Trả lời` (query-time)
 
+### 5. Implementing the RAG flow (code thật, dùng VoyageAI)
+Đây là lesson biến sơ đồ 5 bước ở mục 4 thành code cụ thể, dùng embedding model
+**thật** (VoyageAI) thay vì mock 2D như bài trước, và giới thiệu 1 class
+**`VectorIndex`** đóng vai trò vector database đơn giản (in-memory).
+
+**5 bước implement (khớp với luồng ở mục 4):**
+1. **Chunk text theo section** — đọc file document, dùng lại `chunk_by_section()`
+   (đã học ở mục 2) để tách thành các chunk theo header.
+2. **Generate embeddings cho tất cả chunk** — gọi `generate_embedding()` 1 lần với
+   **cả list chunks** thay vì gọi từng chunk riêng lẻ → **batch processing**,
+   hiệu quả hơn (ít round-trip API hơn). Hàm `generate_embedding` cần được viết lại
+   để nhận cả `str` đơn lẻ lẫn `list[str]`.
+3. **Tạo vector store, add từng embedding vào** — `VectorIndex()` là 1 class tự
+   viết, đóng vai trò vector database tối giản. Mỗi lần `add_vector(embedding, metadata)`
+   lưu **CẢ embedding LẪN nội dung text gốc** (metadata, vd `{"content": chunk}`).
+   - **Vì sao phải lưu cả text gốc?** Khi search xong, vector DB chỉ biết trả về
+     embedding nào gần nhất — nhưng thứ mình CẦN dùng lại là **text gốc** để nhét vào
+     prompt cho Claude, không phải dãy số. Nên phải lưu kèm text (hoặc reference tới
+     text) ngay từ lúc `add_vector`.
+4. **Embed câu hỏi user** — gọi `generate_embedding(query)` với model **giống hệt**
+   model đã dùng để embed chunks (nhắc lại gotcha từ mục 4).
+5. **Search trong vector store** — `store.search(user_embedding, k)` trả về `k` kết
+   quả gần nhất, mỗi kết quả là tuple `(doc, distance)` — `doc` là metadata đã lưu ở
+   bước 3 (chứa `content`), `distance` là **cosine distance** (không phải similarity).
+   - **Distance càng THẤP → càng liên quan** (ngược logic với similarity).
+   - Ví dụ trong bài giảng: query "What did the software engineering dept do last
+     year?" → `Section 2: Software Engineering` distance `0.71` (gần nhất),
+     `Methodology` distance `0.72` (gần nhì) — được chọn vì distance thấp hơn các
+     section khác.
+
+**Tóm tắt luồng chạy:**
+`Đọc file → chunk_by_section() → generate_embedding(chunks) (batch)
+→ VectorIndex().add_vector(embedding, {"content": chunk}) cho từng chunk
+→ generate_embedding(user_query) → store.search(user_embedding, k)
+→ nhận list (doc, distance) → lấy doc["content"] làm context cho prompt Claude`
+
+**Lưu ý:** lesson này nói "vẫn còn case chưa xử lý tốt" — sẽ được cải thiện ở các
+lesson sau (BM25, Multi-Index pipeline).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -140,6 +179,8 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
 | `client.embed(texts, model, input_type)` | method | model="voyage-3-large" | `texts`: list[str]; `input_type`: "query" hoặc "document"; trả về `.embeddings` (list các vector) |
 | Cosine similarity | công thức | — | `dot(a, b) / (norm(a) * norm(b))` — nếu a, b đã normalize (magnitude=1) thì đơn giản còn `dot(a, b)` |
 | Cosine distance | công thức | — | `1 - cosine_similarity` — dùng phổ biến trong vector DB (0 = giống nhau, lớn hơn = khác nhau) |
+| `VectorIndex.add_vector(embedding, metadata)` | method (tự viết) | — | Lưu 1 embedding + metadata (vd `{"content": chunk}`) vào in-memory vector store |
+| `VectorIndex.search(query_embedding, k)` | method (tự viết) | — | Trả về `k` kết quả `(metadata, distance)` gần nhất, sort theo cosine distance tăng dần |
 
 ## Gotchas
 - [ ] Anthropic KHÔNG có embedding API riêng — bắt buộc phải dùng provider ngoài (VoyageAI được recommend chính thức)
@@ -148,6 +189,8 @@ pipeline hoàn chỉnh, chia làm 2 giai đoạn: **preprocessing** (làm trư�
 - [ ] `input_type` khi embed câu hỏi user nên là `"query"`, khi embed document/chunk nên là `"document"` — 2 loại có thể được model tối ưu khác nhau
 - [ ] Query và chunks BẮT BUỘC phải embed bằng CÙNG 1 model — embedding từ 2 model khác nhau không nằm cùng không gian vector, so sánh (cosine similarity) sẽ vô nghĩa
 - [ ] Cosine similarity range là [-1, 1], KHÔNG phải [0, 1] — dễ nhầm với các loại similarity score khác (vd Jaccard)
+- [ ] `VectorIndex.search()` trả về **cosine distance**, không phải similarity — logic NGƯỢC lại (distance thấp = liên quan cao), dễ đọc nhầm khi debug
+- [ ] Luôn lưu text gốc (metadata) kèm embedding trong vector store — chỉ có embedding number thì không dùng lại được để build prompt cho Claude
 
 ## Code Snippets
 ```python
