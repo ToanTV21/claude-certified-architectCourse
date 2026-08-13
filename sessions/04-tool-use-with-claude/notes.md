@@ -83,6 +83,43 @@ tool calling, theo best practice trong docs đính kèm", đính kèm trang docs
 Convention đặt tên: `[ten_ham]_schema` cho biến schema, import `ToolParam` từ `anthropic.types`
 để wrap dict schema (giúp bắt lỗi type sớm hơn khi code sai cấu trúc).
 
+**Ví dụ end-to-end** — hàm `get_current_datetime` (1 trong 3 tool của reminder app) và schema
+tương ứng, đặt tên theo convention `<function_name>_schema`:
+
+```python
+from anthropic.types import ToolParam  # wrap dict để có type-check ở dev-time
+
+def get_current_datetime(date_format="%Y-%m-%d %H:%M:%S"):
+    if not date_format:
+        raise ValueError("date_format cannot be empty")
+    return datetime.now().strftime(date_format)
+
+# ToolParam bọc ngoài dict — không đổi cấu trúc runtime, chỉ giúp IDE/type-checker
+# báo lỗi sớm nếu key sai tên hoặc thiếu field bắt buộc (vd thiếu "input_schema")
+get_current_datetime_schema = ToolParam({
+    "name": "get_current_datetime",
+    "description": "Returns the current date and time formatted according to the specified format. "
+                    "Use this whenever the conversation needs to know 'now' — e.g. to compute a "
+                    "reminder time relative to the present moment. Returns a single formatted string.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "date_format": {
+                "type": "string",
+                "description": "strftime format code, e.g. '%Y-%m-%d %H:%M:%S' or '%H:%M'.",
+                "default": "%Y-%m-%d %H:%M:%S",
+            }
+        },
+        "required": [],  # optional — không bắt buộc Claude phải truyền
+    },
+})
+```
+
+Đối chiếu Java: `input_schema` giống 1 interface mô tả tham số cho 1 "Builder" — mỗi `properties`
+là 1 field, `required` giống list field không có default value trong constructor. `ToolParam`
+tương tự việc dùng 1 class DTO có validate thay vì truyền thẳng 1 `Map<String, Object>` — bắt lỗi
+compile-time thay vì runtime.
+
 ### Handling Message Blocks (message nhiều block)
 Khi dùng tool, `message.content` không còn là 1 block text đơn giản nữa mà là **list nhiều block**:
 - `text` block = phần Claude giải thích cho người dùng
