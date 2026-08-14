@@ -12,7 +12,7 @@
 1. **Không học lại course từ đầu.** Course FPT dạy *cách dùng* Claude API (RAG, embeddings,
    streaming, vision...) — nhưng đề CCA-F là **scenario-based về thiết kế hệ thống agent**.
    Phần giao nhau chỉ khoảng 40%. Nguồn học chính giai đoạn này là
-   [references.md](references.md), KHÔNG phải `sessions/*/notes.md`.
+   [references.md](references.md), KHÔNG phải `build-with-claude-api/*/notes.md`.
 2. **Loại trừ trước khi học thêm.** Danh sách "chủ đề CHẮC CHẮN KHÔNG thi" ở cuối
    [references.md](references.md) (fine-tuning, vector DB, streaming/SSE, vision, tokenization,
    rate limit, hosting MCP server...) — gặp trong course thì đọc lướt, không đào sâu.

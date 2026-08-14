@@ -15,7 +15,8 @@ fpt-claude-study/
 ├── .gitignore
 ├── requirements.txt
 │
-├── sessions/                   ← 1 folder / session (major course section)
+├── build-with-claude-api/       ← COURSE 1: Build with Claude API (FPT / ôn CCA-F)
+│   │                             1 folder / session (major course section)
 │   ├── _session-template.md
 │   ├── 00-course-overview/
 │   │   └── notes.md
@@ -34,6 +35,16 @@ fpt-claude-study/
 │   └── 11-wrapping-up/
 │       (mỗi session-NN/ có notes.md + exercises/ riêng)
 │
+├── claude-code-in-action/      ← COURSE 2: Claude Code in Action (Anthropic)
+│   ├── README.md               ← index + progress table của khóa này
+│   ├── 00-course-overview/
+│   ├── 01-steer-the-work/
+│   ├── 02-configure-claude/
+│   ├── 03-automate-repeat-work/
+│   ├── 04-verify-and-share/
+│   └── 05-course-quiz/
+│       (mỗi NN-ten-section/ có notes.md + exercises/ + images/ riêng)
+│
 ├── exam-prep/                  ← Ôn thi CCA-F
 │   ├── flashcards.md           ← Q&A nhanh
 │   ├── practice-questions.md   ← Mock exam questions
@@ -46,7 +57,14 @@ fpt-claude-study/
 ```
 ---
 ## Curriculum Progress
-Tiến độ từng session (status, nội dung chính) được ghi và cập nhật trong [README.md](README.md), không ghi ở đây.
+Workspace này chứa **2 khóa học**, mỗi khóa 1 folder riêng ở top level:
+
+| Khóa | Folder | Progress table |
+|------|--------|----------------|
+| Build with Claude API (FPT Claude Code Developer → thi CCA-F) | `build-with-claude-api/` | [README.md](README.md) |
+| Claude Code in Action (Anthropic) | `claude-code-in-action/` | [claude-code-in-action/README.md](claude-code-in-action/README.md) |
+
+Tiến độ từng session/section (status, nội dung chính) ghi trong progress table tương ứng ở trên, không ghi ở đây.
 ---
 ## CCA-F Exam Overview
 - **Format:** 60 câu, 120 phút, passing score 720/1000
@@ -95,11 +113,11 @@ MODEL_MAIN = "claude-sonnet-4-6"
 # Setup
 pip install -r requirements.txt
 # Run an exercise
-python sessions/01-accessing-claude-api/exercises/01_chat_exercise.py
+python build-with-claude-api/01-accessing-claude-api/exercises/01_chat_exercise.py
 # Start Claude Code interactive session
 claude
 # Run Claude Code on specific task
-claude "review my MCP server implementation in sessions/07-model-context-protocol/exercises/"
+claude "review my MCP server implementation in build-with-claude-api/07-model-context-protocol/exercises/"
 # Continue last session
 claude --continue
 ```
@@ -109,9 +127,10 @@ Khi làm việc trong project này, Claude Code nên:
 1. **Ưu tiên dùng `claude-haiku-4-5`** cho các bài tập dev/test để tiết kiệm cost
 2. **Luôn dùng `python-dotenv`** để load API key, không bao giờ hardcode
 3. **Viết code có comments giải thích** vì đây là môi trường học — mỗi đoạn code, mỗi hàm, và mỗi parameter bên trong đều phải có comment giải thích rõ nó làm gì / dùng để làm gì, không để code trơ trụi không chú thích
-4. **Khi tạo file note mới** dùng template trong `sessions/_session-template.md`
-5. **Khi tạo bài tập mới** đặt trong đúng `sessions/NN-ten-session/exercises/` folder
-6. **Sau khi làm xong bài tập** cập nhật status trong README.md (không phải CLAUDE.md)
+4. **Khi tạo file note mới** dùng template trong `build-with-claude-api/_session-template.md`
+5. **Khi tạo bài tập mới** đặt trong đúng `NN-ten-session/exercises/` folder của khóa tương ứng
+5b. **Chọn đúng khóa** — note/bài tập về **Claude API** (SDK, prompt, tool use, RAG, MCP server code) → `build-with-claude-api/`; note về **cách vận hành Claude Code** (CLAUDE.md, skills, permission modes, hooks, headless, routines, plugins, GitHub Actions) → `claude-code-in-action/`
+6. **Sau khi làm xong bài tập** cập nhật status trong progress table của khóa đó (`README.md` hoặc `claude-code-in-action/README.md`), không phải CLAUDE.md
 6b. **Sau mỗi lần write/edit file** phải `git add` + `git commit` (message ngắn gọn mô tả thay đổi) rồi `git push` lên remote GitHub ngay, không gộp nhiều thay đổi rồi mới commit 1 lần
 7. **Ngôn ngữ:**
    - **Khi chat trực tiếp với user** (trả lời câu hỏi, giải thích, thảo luận trong conversation): luôn dùng **tiếng Anh**.
@@ -124,7 +143,7 @@ Khi làm việc trong project này, Claude Code nên:
    - Nếu file đích là 1 bài tập trong `exercises/`, lưu toàn bộ phần giải thích này vào file `.md` riêng cùng cấp, đặt tên theo pattern `<tên_file_exercise>_notes.md` (vd `02_system_prompts_exercise.py` → `02_system_prompts_exercise_notes.md`), rồi git add/commit/push theo rule 6b
 ---
 ## Note-Taking Template
-Mỗi `notes.md` trong `sessions/NN-ten-session/` theo cấu trúc:
+Mỗi `notes.md` trong `build-with-claude-api/NN-ten-session/` theo cấu trúc:
 ```markdown
 # Module X: [Tên Module]
 ## Key Concepts
@@ -147,7 +166,7 @@ Mỗi `notes.md` trong `sessions/NN-ten-session/` theo cấu trúc:
 ```
 ---
 ## Exercise Template
-Mỗi file trong `sessions/NN-ten-session/exercises/` theo cấu trúc:
+Mỗi file trong `build-with-claude-api/NN-ten-session/exercises/` theo cấu trúc:
 ```python
 """
 Exercise XX-YY: [Tên bài tập]

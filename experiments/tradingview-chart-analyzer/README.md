@@ -3,7 +3,7 @@
 Script thử nghiệm: dùng Playwright mở TradingView, chuyển symbol/timeframe, chụp
 screenshot vùng chart, rồi gửi ảnh cho Claude API (vision) để phân tích price action.
 
-Đây là thử nghiệm độc lập, **không thuộc** curriculum trong `sessions/`.
+Đây là thử nghiệm độc lập, **không thuộc** curriculum trong `build-with-claude-api/`.
 
 ## Setup
 

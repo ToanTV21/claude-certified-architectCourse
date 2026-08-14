@@ -3,7 +3,7 @@ Experiment: TradingView Chart Analyzer
 Objective: Dùng Playwright điều khiển browser mở TradingView, chuyển cặp tiền/timeframe,
 chụp screenshot vùng chart, rồi gửi ảnh cho Claude API (vision) để phân tích price action.
 
-Lưu ý: Đây là script thử nghiệm (không thuộc sessions/ curriculum) — kiểm tra khả năng
+Lưu ý: Đây là script thử nghiệm (không thuộc build-with-claude-api/ curriculum) — kiểm tra khả năng
 Claude "nhìn" chart qua screenshot thay vì đọc dữ liệu OHLC thô.
 
 Cách chạy:

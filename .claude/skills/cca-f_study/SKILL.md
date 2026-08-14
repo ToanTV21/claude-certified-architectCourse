@@ -18,7 +18,7 @@ convention đã định nghĩa trong `CLAUDE.md` của project `fpt-claude-study
 
 ## Input cần xác định trước khi làm
 
-1. **Session đích** — folder `sessions/NN-ten-session/` nào? Nếu user không nói rõ, suy ra từ nội dung
+1. **Session đích** — folder `build-with-claude-api/NN-ten-session/` nào? Nếu user không nói rõ, suy ra từ nội dung
    lesson (vd nội dung về "generate test dataset" → thuộc `02-prompt-evaluation`) hoặc hỏi lại nếu không chắc.
 2. **Tên lesson/chủ đề** — dùng để đặt tên file bài tập theo pattern
    `<NN>_<ten_lesson_snake_case>_exercise.py` trong `exercises/`, `NN` là số thứ tự tiếp theo
@@ -29,7 +29,7 @@ convention đã định nghĩa trong `CLAUDE.md` của project `fpt-claude-study
 ### Bước 1 — Đọc context project trước
 Đọc `CLAUDE.md` ở root project (nếu chưa có trong context) để nắm đúng convention hiện hành —
 đặc biệt là phần "AI Behavior in This Project", "Note-Taking Template", "Exercise Template".
-Đọc `sessions/NN-ten-session/notes.md` hiện có để biết đã note tới đâu, tránh ghi trùng.
+Đọc `build-with-claude-api/NN-ten-session/notes.md` hiện có để biết đã note tới đâu, tránh ghi trùng.
 
 ### Bước 2 — Cập nhật `notes.md` của session
 Thêm 1 section mới (hoặc mở rộng section có sẵn) vào đúng vị trí trong `notes.md`, theo cấu trúc
@@ -42,7 +42,7 @@ Note-Taking Template trong CLAUDE.md:
 - Cập nhật bảng "Important APIs / Parameters" và "Gotchas" nếu lesson giới thiệu API/param/gotcha mới
 
 ### Bước 3 — Viết file bài tập Python riêng
-Tạo file mới trong `sessions/NN-ten-session/exercises/`, theo đúng Exercise Template trong CLAUDE.md:
+Tạo file mới trong `build-with-claude-api/NN-ten-session/exercises/`, theo đúng Exercise Template trong CLAUDE.md:
 - Header docstring: `Exercise <NN>: <Tên bài tập>`, `Session: <Tên session>`, `Objective: <mục tiêu>`
 - Dùng `from dotenv import load_dotenv` + `anthropic.Anthropic()` — không hardcode API key
 - Model: ưu tiên `claude-haiku-4-5` cho dev/test (đúng rule 1 trong CLAUDE.md), trừ khi lesson gốc
@@ -63,7 +63,7 @@ chắn xảy ra), ghi chú lại trong `notes.md` phần Gotchas thay vì âm th
 ### Bước 5 — Git commit + push (bắt buộc theo rule 6b)
 Sau khi write/edit xong `notes.md` và file bài tập:
 ```bash
-git add sessions/<NN-ten-session>/notes.md sessions/<NN-ten-session>/exercises/<file>.py
+git add build-with-claude-api/<NN-ten-session>/notes.md build-with-claude-api/<NN-ten-session>/exercises/<file>.py
 git commit -m "<mô tả ngắn gọn>"
 git push
 ```
@@ -71,7 +71,7 @@ Không gộp nhiều lesson khác nhau vào 1 commit.
 
 ## Không làm
 
-- Không tạo file note/bài tập ngoài đúng `sessions/NN-ten-session/` tương ứng
+- Không tạo file note/bài tập ngoài đúng `build-with-claude-api/NN-ten-session/` tương ứng
 - Không viết code thiếu comment (vi phạm rule 3 — bắt buộc với mọi bài tập trong project này)
 - Không tự ý dùng model khác `claude-haiku-4-5` cho bài tập dev/test trừ khi có lý do rõ ràng
 - Không qua bước cập nhật CLAUDE.md status table nếu session đó chưa hoàn thành toàn bộ — chỉ tick

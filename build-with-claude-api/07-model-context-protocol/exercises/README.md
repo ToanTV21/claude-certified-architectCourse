@@ -15,6 +15,6 @@ Requires: `pip install mcp`
 
 ## Chạy thử với MCP Inspector
 ```bash
-mcp dev sessions/07-model-context-protocol/exercises/01_mcp_server.py
-mcp dev sessions/07-model-context-protocol/exercises/03_document_mcp_server.py
+mcp dev build-with-claude-api/07-model-context-protocol/exercises/01_mcp_server.py
+mcp dev build-with-claude-api/07-model-context-protocol/exercises/03_document_mcp_server.py
 ```
