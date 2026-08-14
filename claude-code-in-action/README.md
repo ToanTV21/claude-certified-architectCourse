@@ -12,7 +12,7 @@ Khóa này khác với khóa `build-with-claude-api/` (FPT Claude Code Developer
 | # | Section folder | Section | Lessons | Status |
 |---|----------------|---------|---------|--------|
 | 00 | [00-course-overview](00-course-overview/notes.md) | Course Overview | Course Overview | ⬜ Todo |
-| 01 | [01-steer-the-work](01-steer-the-work/notes.md) | Steer the Work | Steering Long Sessions | 🔄 In progress |
+| 01 | [01-steer-the-work](01-steer-the-work/notes.md) | Steer the Work | Steering Long Sessions | ✅ Done |
 | 02 | [02-configure-claude](02-configure-claude/notes.md) | Configure Claude | A CLAUDE.md That Follows · Verification Skills · Permission Modes · Hooks | ⬜ Todo |
 | 03 | [03-automate-repeat-work](03-automate-repeat-work/notes.md) | Automate Repeat Work | Routines and Headless · GitHub Actions and Code Review | ⬜ Todo |
 | 04 | [04-verify-and-share](04-verify-and-share/notes.md) | Verify and Share | Trust It: Verifying Unsupervised Runs · Plugins | ⬜ Todo |

@@ -23,6 +23,9 @@
 ## Gotchas
 - [ ] ...
 
+## CCA-F Exam Tips
+- ...
+
 ## Code / Config Snippets
 ```yaml
 # .github/workflows/claude-review.yml

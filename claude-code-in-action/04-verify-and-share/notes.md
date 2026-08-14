@@ -23,6 +23,9 @@
 ## Gotchas
 - [ ] ...
 
+## CCA-F Exam Tips
+- ...
+
 ## Code / Config Snippets
 ```jsonc
 // plugin manifest
