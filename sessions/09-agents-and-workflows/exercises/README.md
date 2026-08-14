@@ -4,3 +4,9 @@
   into the next (draft -> critique -> revise).
 - `02_routing_workflow.py` — Routing workflow: classify the input, then dispatch
   to a different prompt/handler per category.
+- `03_evaluator_optimizer_workflow.py` — Evaluator-Optimizer workflow: producer
+  drafts a docstring, evaluator grades it and gives feedback, loop until accepted
+  or max iterations.
+- `04_parallelization_workflow.py` — Parallelization workflow: evaluate a part
+  against multiple materials in parallel Claude calls, then aggregate into one
+  final recommendation.
