@@ -45,22 +45,8 @@ fpt-claude-study/
     └── client.py               ← Khởi tạo Anthropic client dùng chung
 ```
 ---
-## Curriculum Map
-| # | Session folder | Section | Status |
-|---|-----------------|---------|--------|
-| 00 | `sessions/00-course-overview/` | Course Overview | ⬜ Todo |
-| 01 | `sessions/01-accessing-claude-api/` | Accessing Claude with the API | ✅ Done |
-| 02 | `sessions/02-prompt-evaluation/` | Prompt Evaluation | ✅ Done |
-| 03 | `sessions/03-prompt-engineering-techniques/` | Prompt Engineering Techniques | ✅ Done |
-| 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | ✅ Done |
-| 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ✅ Done |
-| 06 | `sessions/06-features-of-claude/` | Features of Claude | ✅ Done |
-| 07 | `sessions/07-model-context-protocol/` | Model Context Protocol | ✅ Done |
-| 08 | `sessions/08-anthropic-apps-claude-code/` | Anthropic Apps — Claude Code & Computer Use | 🔄 In Progress |
-| 09 | `sessions/09-agents-and-workflows/` | Agents and Workflows | ⬜ Todo |
-| 10 | `sessions/10-final-assessment/` | Final Assessment | ⬜ Todo |
-| 11 | `sessions/11-wrapping-up/` | Wrapping Up | ⬜ Todo |
-Update status khi hoàn thành mỗi session.
+## Curriculum Progress
+Tiến độ từng session (status, nội dung chính) được ghi và cập nhật trong [README.md](README.md), không ghi ở đây.
 ---
 ## CCA-F Exam Overview
 - **Format:** 60 câu, 120 phút, passing score 720/1000
@@ -125,7 +111,7 @@ Khi làm việc trong project này, Claude Code nên:
 3. **Viết code có comments giải thích** vì đây là môi trường học — mỗi đoạn code, mỗi hàm, và mỗi parameter bên trong đều phải có comment giải thích rõ nó làm gì / dùng để làm gì, không để code trơ trụi không chú thích
 4. **Khi tạo file note mới** dùng template trong `sessions/_session-template.md`
 5. **Khi tạo bài tập mới** đặt trong đúng `sessions/NN-ten-session/exercises/` folder
-6. **Sau khi làm xong bài tập** cập nhật status trong CLAUDE.md
+6. **Sau khi làm xong bài tập** cập nhật status trong README.md (không phải CLAUDE.md)
 6b. **Sau mỗi lần write/edit file** phải `git add` + `git commit` (message ngắn gọn mô tả thay đổi) rồi `git push` lên remote GitHub ngay, không gộp nhiều thay đổi rồi mới commit 1 lần
 7. **Ngôn ngữ:**
    - **Khi chat trực tiếp với user** (trả lời câu hỏi, giải thích, thảo luận trong conversation): luôn dùng **tiếng Anh**.
