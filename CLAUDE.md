@@ -55,8 +55,8 @@ fpt-claude-study/
 | 04 | `sessions/04-tool-use-with-claude/` | Tool Use with Claude | ✅ Done |
 | 05 | `sessions/05-rag-and-agentic-search/` | RAG and Agentic Search | ✅ Done |
 | 06 | `sessions/06-features-of-claude/` | Features of Claude | ✅ Done |
-| 07 | `sessions/07-model-context-protocol/` | Model Context Protocol | 🔄 In Progress |
-| 08 | `sessions/08-anthropic-apps-claude-code/` | Anthropic Apps — Claude Code & Computer Use | ⬜ Todo |
+| 07 | `sessions/07-model-context-protocol/` | Model Context Protocol | ✅ Done |
+| 08 | `sessions/08-anthropic-apps-claude-code/` | Anthropic Apps — Claude Code & Computer Use | 🔄 In Progress |
 | 09 | `sessions/09-agents-and-workflows/` | Agents and Workflows | ⬜ Todo |
 | 10 | `sessions/10-final-assessment/` | Final Assessment | ⬜ Todo |
 | 11 | `sessions/11-wrapping-up/` | Wrapping Up | ⬜ Todo |
