@@ -5,7 +5,7 @@
 - [x] Parallelization workflows
 - [x] Chaining workflows
 - [x] Routing workflows
-- [ ] Agents and tools
+- [x] Agents and tools
 - [x] Environment inspection
 - [x] Workflows vs agents
 - [ ] Quiz on Agents and Workflows
@@ -232,6 +232,55 @@ validate nội dung sinh ra so với requirement gốc.
 → Environment inspection biến Claude từ 1 "cỗ máy thực thi lệnh mù quáng" thành 1 agent
 thực sự hiểu và thích nghi được với môi trường làm việc của nó.
 
+### 8. Agents and tools
+**Agent** là bước chuyển dịch khỏi workflow có cấu trúc cố định: thay vì định nghĩa sẵn 1
+chuỗi step, ta cho Claude 1 **goal** + 1 **bộ tool**, để Claude tự tìm ra cách kết hợp tool
+đó để đạt mục tiêu. Dùng khi **không biết trước** chính xác các step cần đi qua (task đa
+dạng, khó liệt kê hết thành flow cố định) — trái ngược với workflow. Xem code minh hoạ ở
+[`06_agents_and_tools_exercise.py`](exercises/06_agents_and_tools_exercise.py).
+
+**Điểm mạnh:** build 1 agent duy nhất, đảm bảo nó hoạt động tương đối tốt, rồi deploy để xử
+lý được nhiều loại task đa dạng — không cần code riêng cho từng use case. Đánh đổi lại là
+reliability và cost kém ổn định hơn workflow (đã nêu ở phần so sánh Benefits/Downsides tại
+mục 1).
+
+**Sức mạnh thật sự nằm ở việc Claude tự kết hợp tool đơn giản theo cách không lường trước.**
+Ví dụ bộ tool datetime cơ bản:
+- `get_current_datetime` — lấy ngày giờ hiện tại
+- `add_duration_to_datetime` — cộng thêm khoảng thời gian vào 1 ngày cho trước
+- `set_reminder` — tạo reminder cho 1 thời điểm cụ thể
+
+Từng tool nhìn riêng lẻ rất đơn giản, nhưng Claude có thể **chain** chúng lại để xử lý
+request phức tạp hơn nhiều so với chức năng của từng tool:
+- "What's the time?" → chỉ cần gọi `get_current_datetime`
+- "What day of the week is it in 11 days?" → chain `get_current_datetime` rồi
+  `add_duration_to_datetime`
+- "Set a gym reminder for next Wednesday" → có thể dùng cả 3 tool nối tiếp nhau
+
+Claude còn tự nhận ra khi **thiếu thông tin** cần hỏi lại user — vd hỏi "When does my
+90-day warranty expire?" thì Claude biết cần hỏi lại ngày mua hàng trước khi tính được ngày
+hết hạn, thay vì đoán mò.
+
+**Nguyên tắc thiết kế — tool nên đủ trừu tượng (abstract), không nên hyper-specialized.**
+Claude Code minh hoạ rõ nguyên tắc này: nó chỉ có tool generic, linh hoạt như `bash`,
+`read`, `write`, `edit`, `glob`, `grep` — **không có** tool chuyên biệt kiểu "refactor code"
+hay "install dependencies". Claude tự nghĩ ra cách dùng tool cơ bản để hoàn thành các task
+phức tạp đó → nhờ tính trừu tượng này, agent xử lý được vô số tình huống lập trình mà
+developer chưa từng lường trước lúc thiết kế.
+
+**Best practice — thiết kế tool để dễ combinable (kết hợp được với nhau).** Ví dụ agent
+tạo + đăng video social media có thể có bộ tool:
+- `bash` — truy cập FFMPEG để xử lý video
+- `generate_image` — tạo ảnh từ prompt
+- `text_to_speech` — chuyển text thành audio
+- `post_media` — đăng nội dung lên social platform
+
+Bộ tool này cho phép cả flow đơn giản (tạo + đăng video liền mạch) lẫn trải nghiệm tương
+tác phức tạp hơn — vd agent tạo 1 ảnh mẫu trước, chờ user duyệt, rồi mới tiếp tục tạo video
+— điều rất khó làm được với 1 workflow cứng nhắc. Agent có thể tự điều chỉnh cách làm dựa
+trên feedback/preference của user theo thời gian thực, đây chính là điểm mạnh cốt lõi giúp
+agent phù hợp cho app cần tương tác linh hoạt, phản hồi theo user.
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
@@ -239,6 +288,7 @@ thực sự hiểu và thích nghi được với môi trường làm việc c�
 | `concurrent.futures.ThreadPoolExecutor` | Python stdlib | — | Cách phổ biến để chạy nhiều Claude call song song trong parallelization workflow |
 | `whisper.cpp` | CLI tool | — | Speech-to-text, dùng để sinh caption file có timestamp — verify dialogue placement trong video agent |
 | `ffmpeg` | CLI tool | — | Trích screenshot từ video theo interval để agent tự inspect lại visual output |
+| `tools` (Messages API param) | list[ToolParam] | — | Danh sách tool schema cấp cho agent — nên giữ tool **abstract/generic** (vd `bash`, `read`) thay vì hyper-specialized để agent tự combine linh hoạt |
 
 ## Gotchas
 - [ ] Nhận diện được pattern (workflow/agent) chưa làm gì cả — vẫn phải tự viết code để
@@ -255,6 +305,9 @@ thực sự hiểu và thích nghi được với môi trường làm việc c�
   screenshot sau khi click UI) là nguyên nhân phổ biến khiến agent hành động sai mà không
   tự phát hiện được — luôn tự hỏi "Claude sẽ biết action này thành công hay không bằng cách
   nào?" khi thiết kế tool/instruction cho agent
+- [ ] Tool càng **hyper-specialized** (vd "refactor_code", "install_dependencies") càng giới
+  hạn khả năng agent xử lý tình huống mới — nên thiết kế tool đủ **abstract/generic** (như
+  `bash`, `read`, `write` của Claude Code) để Claude tự kết hợp theo cách chưa lường trước
 
 ## Code Snippets
 ```python

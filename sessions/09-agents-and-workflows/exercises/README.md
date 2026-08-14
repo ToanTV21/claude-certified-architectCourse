@@ -13,3 +13,6 @@
 - `05_environment_inspection_exercise.py` — Environment inspection: read-before-write
   pattern — read a target file's current content first, then ask Claude to propose a
   change that matches the existing structure/convention.
+- `06_agents_and_tools_exercise.py` — Agents and tools: agent freely chains 3 abstract
+  datetime/reminder tools (`get_current_datetime`, `add_duration_to_datetime`,
+  `set_reminder`) in whatever order the request needs — no hardcoded step sequence.
