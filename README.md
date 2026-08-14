@@ -38,7 +38,7 @@ Mỗi session của khóa học nằm trong 1 folder riêng dưới `sessions/`,
 | 08 | [sessions/08-anthropic-apps-claude-code](sessions/08-anthropic-apps-claude-code/notes.md) | Anthropic Apps — Claude Code & Computer Use | 🔄 In progress | Các app do Anthropic xây dựng: setup và thực hành **Claude Code**, mở rộng khả năng của nó bằng cách kết nối thêm **MCP servers**. |
 | 09 | [sessions/09-agents-and-workflows](sessions/09-agents-and-workflows/notes.md) | Agents and Workflows | ✅ Done | Các pattern xây **agentic workflow**: **parallelization**, **chaining**, **routing**, kết hợp agent với tool, kỹ thuật **environment inspection**, và so sánh **workflows vs agents** — khi nào dùng cái nào. |
 | 10 | [sessions/10-final-assessment](sessions/10-final-assessment/notes.md) | Final Assessment | ✅ Done | Bài đánh giá tổng kết cuối khóa, ôn lại toàn bộ kiến thức đã học qua các session trước. |
-| 11 | [sessions/11-wrapping-up](sessions/11-wrapping-up/notes.md) | Wrapping Up | ⬜ Todo | Tổng kết khóa học, nhìn lại lộ trình đã đi qua và định hướng bước tiếp theo. |
+| 11 | [sessions/11-wrapping-up](sessions/11-wrapping-up/notes.md) | Wrapping Up | ✅ Done | Tổng kết khóa học, nhìn lại lộ trình đã đi qua và định hướng bước tiếp theo. |
 
 ## Layout
 
