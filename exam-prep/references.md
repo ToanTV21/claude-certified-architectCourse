@@ -7,6 +7,18 @@
 - File này (`references.md`) là bản tổng hợp đầy đủ nội dung guide, tổ chức lại
   để tra cứu nhanh. Các điểm quan trọng nhất đã được đưa thêm vào
   [cheat-sheet.md](cheat-sheet.md) và [flashcards.md](flashcards.md).
+- Lộ trình ôn + quy trình luyện đề: [study-plan.md](study-plan.md).
+
+## Nguồn luyện đề cộng đồng (KHÔNG phải đề chính thức)
+| Site | Dùng để |
+|------|---------|
+| https://claudecertificationguide.com/ | Học theo module, cấu trúc bám đúng 5 domain — dùng để vá lỗ hổng kiến thức |
+| https://guided.maithienan.com/certifications/ccar-f | Bộ câu hỏi có hướng dẫn |
+| https://thangldw.github.io/apps/cert/ccar-f/ | Quiz app, luyện phản xạ |
+| https://ccar-architect-foundations.vercel.app/ | Mock exam mô phỏng |
+
+⚠️ Khi nguồn ngoài mâu thuẫn với file này → tin file này (bám guide gốc). Nếu nguồn ngoài đúng
+mà file này thiếu → bổ sung vào đây rồi commit.
 
 ## Định dạng bài thi
 | Tham số | Giá trị |

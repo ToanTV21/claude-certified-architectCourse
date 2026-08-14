@@ -43,9 +43,11 @@ Mỗi session của khóa học nằm trong 1 folder riêng dưới `sessions/`,
 ## Layout
 
 - `sessions/` — 1 folder / session: `notes.md` + `exercises/`
-- `exam-prep/` — ôn thi CCA-F ([flashcards](exam-prep/flashcards.md),
+- `exam-prep/` — ôn thi CCA-F ([**study plan**](exam-prep/study-plan.md) ← bắt đầu từ đây,
+  [flashcards](exam-prep/flashcards.md),
   [cheat-sheet](exam-prep/cheat-sheet.md),
   [practice questions](exam-prep/practice-questions.md),
+  [mock exam log](exam-prep/mock-exam-log.md),
   [wrong answers log](exam-prep/wrong-answers.md),
   [official guide references](exam-prep/references.md))
 - `src/` — shared utilities (Anthropic client)
