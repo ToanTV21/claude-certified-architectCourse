@@ -17,6 +17,10 @@ hoạ đúng luồng 9 bước đã note trong notes.md lesson "MCP clients":
 import asyncio  # MCP client SDK + vòng lặp async cho toàn bộ luồng
 import sys  # lấy đường dẫn python hiện tại để spawn server con qua stdio
 
+# console mặc định trên Windows dùng codepage cp1252, không encode được dấu tiếng
+# Việt trong log -> ép stdout sang UTF-8 để tránh UnicodeEncodeError
+sys.stdout.reconfigure(encoding="utf-8")
+
 from dotenv import load_dotenv  # load ANTHROPIC_API_KEY từ .env, không hardcode key
 import anthropic  # Anthropic SDK để gọi Claude thật
 

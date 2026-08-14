@@ -7,7 +7,11 @@ schemas instead of hand-writing JSON schemas.
 """
 
 from mcp.server.fastmcp import FastMCP  # SDK dựng MCP server nhanh, decorator-based
-from mcp.server.fastmcp import base  # base.UserMessage/base.Message dùng cho prompt trả về
+
+# base.UserMessage/base.Message dùng cho prompt trả về — ở bản mcp SDK hiện tại
+# (đã kiểm tra: SDK cài trong .venv), module này nằm trong fastmcp.prompts, không
+# còn export trực tiếp ở fastmcp/__init__.py như code mẫu gốc của lesson
+from mcp.server.fastmcp.prompts import base
 from pydantic import Field  # dùng Field để mô tả từng argument của tool cho Claude hiểu
 
 # log_level="ERROR" — giảm log ồn ào khi chạy dev, chỉ in ra khi có lỗi thật sự
