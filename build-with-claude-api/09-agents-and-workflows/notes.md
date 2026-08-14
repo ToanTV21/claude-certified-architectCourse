@@ -8,6 +8,7 @@
 - [x] Agents and tools
 - [x] Environment inspection
 - [x] Workflows vs agents
+- [x] Agent SDK overview
 - [ ] Quiz on Agents and Workflows
 
 ## Key Concepts
@@ -340,9 +341,52 @@ tác phức tạp hơn — vd agent tạo 1 ảnh mẫu trước, chờ user duy
 trên feedback/preference của user theo thời gian thực, đây chính là điểm mạnh cốt lõi giúp
 agent phù hợp cho app cần tương tác linh hoạt, phản hồi theo user.
 
+### 9. Agent SDK overview
+**Agent SDK** là 1 library (Python + TypeScript) cho phép build agent chạy được ngay trong
+process của app mình, tái sử dụng **cùng agent loop, cùng bộ tool, và cùng cơ chế quản lý
+context** đang chạy bên trong Claude Code — nói cách khác, "Claude Code dưới dạng thư viện"
+để tự lập trình lên trên, thay vì chỉ dùng qua CLI.
+
+**So sánh với các cách khác để dùng Claude (bảng lựa chọn công cụ):**
+
+| Nếu bạn đang... | Nên dùng | Vì sao |
+|---|---|---|
+| Build agent mà không muốn tự cài agent loop | **Agent SDK** | Library chạy agent loop ngay trong process của bạn (Python/TypeScript) |
+| Dev tương tác, chạy task 1 lần từ terminal | **Claude Code CLI** | Terminal interface, dùng hàng ngày cho việc tương tác trực tiếp |
+| Gọi thẳng API và tự viết tool loop | **Client SDK** (Messages API) | Truy cập trực tiếp Anthropic API, tự lo agent loop |
+| Chạy agent dài hạn/async, không muốn tự quản lý sandbox/session | **Managed Agents** | REST API được host sẵn — Anthropic tự chạy agent + sandbox |
+
+→ Agent SDK chỉ có cho **Python và TypeScript**. Muốn drive cùng agent loop từ ngôn ngữ khác,
+có thể chạy Claude Code CLI như 1 subprocess (`-p` flag + `--output-format json`).
+
+**Các capability kế thừa từ Claude Code (đều dùng lại y nguyên, không cần build lại):**
+
+| Capability | Mô tả |
+|---|---|
+| Built-in tools | Read, write, edit file; chạy command; search web |
+| Hooks | Chạy custom code tại các điểm mốc trong agent lifecycle |
+| Subagents | Spawn agent chuyên biệt cho từng subtask con |
+| MCP | Kết nối external tool/data source qua Model Context Protocol (xem lại session 07) |
+| Permissions | Kiểm soát tool nào tự chạy, tool nào cần approve trước |
+| Sessions | Giữ context xuyên suốt nhiều lượt exchange, resume/fork lại được sau |
+| Skills, commands, memory | Tự động load từ `.claude/` của project và `~/.claude/` của user, giống hệt Claude Code |
+| Plugins | Đóng gói skill/agent/hook/MCP server thành 1 gói, load qua local path |
+
+**Lưu ý về branding khi tích hợp Agent SDK vào sản phẩm của bên thứ 3:** được phép dùng tên
+"Claude Agent" hoặc "Claude" (trong menu đã ghi rõ "Agents"), **không được** gọi sản phẩm là
+"Claude Code" hay dùng ASCII art/branding bắt chước Claude Code — sản phẩm build trên Agent
+SDK phải giữ branding riêng, không được trông giống chính Claude Code hay sản phẩm Anthropic.
+
+**Điểm mấu chốt cần nhớ cho CCA-F:** Agent SDK ≠ Client SDK (Messages API). Agent SDK cho
+sẵn agent loop + context management + toàn bộ hạ tầng Claude Code (skills/hooks/MCP/
+permissions); Client SDK (Messages API) chỉ là gọi API thô, tự viết tool loop từ đầu như đã
+làm ở session 04 (Tool Use).
+
 ## Important APIs / Parameters
 | Name | Type | Default | Notes |
 |------|------|---------|-------|
+| Agent SDK | Library (Python/TypeScript) | — | Chạy agent loop + tool + context management của Claude Code ngay trong process app riêng; xem [`07_agent_sdk_exercise.py`](exercises/07_agent_sdk_exercise.py) |
+| `claude -p ... --output-format json` | CLI flags | — | Cách drive agent loop của Claude Code từ ngôn ngữ khác ngoài Python/TypeScript (chạy CLI như subprocess) |
 | `CadQuery` | Python library | — | Dùng để model 3D object bằng code trong workflow Image-to-CAD |
 | `concurrent.futures.ThreadPoolExecutor` | Python stdlib | — | Cách phổ biến để chạy nhiều Claude call song song trong parallelization workflow |
 | `whisper.cpp` | CLI tool | — | Speech-to-text, dùng để sinh caption file có timestamp — verify dialogue placement trong video agent |
@@ -364,6 +408,10 @@ agent phù hợp cho app cần tương tác linh hoạt, phản hồi theo user.
   screenshot sau khi click UI) là nguyên nhân phổ biến khiến agent hành động sai mà không
   tự phát hiện được — luôn tự hỏi "Claude sẽ biết action này thành công hay không bằng cách
   nào?" khi thiết kế tool/instruction cho agent
+- [ ] Nhầm lẫn Agent SDK với Client SDK (Messages API) — Agent SDK có sẵn agent loop + tool
+  + context management như Claude Code, Client SDK chỉ là gọi API thô phải tự viết tool loop
+- [ ] Sản phẩm build trên Agent SDK không được đặt tên/branding trùng hoặc bắt chước
+  "Claude Code" — chỉ được dùng "Claude Agent" hoặc "Claude" (trong menu đã ghi rõ "Agents")
 - [ ] Tool càng **hyper-specialized** (vd "refactor_code", "install_dependencies") càng giới
   hạn khả năng agent xử lý tình huống mới — nên thiết kế tool đủ **abstract/generic** (như
   `bash`, `read`, `write` của Claude Code) để Claude tự kết hợp theo cách chưa lường trước
