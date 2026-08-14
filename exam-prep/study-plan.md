@@ -1,5 +1,7 @@
 # CCA-F Study Plan — Chiến lược tổng hợp kiến thức & luyện đề
 
+> Chưa biết đọc file nào trước? Xem [README.md](README.md) — bản đồ thứ tự đọc của cả folder.
+
 > Ngày lập: 2026-08-14 · Mục tiêu: đạt **720/1000** trước 2026-09-30 (cuối Q3).
 > Quỹ thời gian còn lại: **~6.5 tuần** → plan chia 4 tuần chính + 2 tuần buffer/ôn nước rút.
 
