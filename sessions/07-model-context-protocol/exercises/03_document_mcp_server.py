@@ -36,8 +36,8 @@ docs = {
 def read_document(
     # Field(description=...) — Pydantic tự sinh JSON schema kèm mô tả cho Claude,
     # không cần tự viết schema tay như cách "trước MCP" ở lesson Introducing MCP
-    doc_id: str = Field(description="Id of the document to read")
-):
+    doc_id: str = Field(description="Id of the document to read"),
+) -> str:
     if doc_id not in docs:
         # raise ValueError kèm message rõ ràng — Claude đọc được message này để phản ứng phù hợp
         raise ValueError(f"Doc with id {doc_id} not found")

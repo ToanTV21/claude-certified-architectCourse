@@ -6,14 +6,19 @@ Resource, and a Prompt.
 """
 
 from mcp.server.fastmcp import FastMCP  # framework dựng MCP server nhanh, decorator-based
+from pydantic import Field  # dùng Field để mô tả từng argument của tool cho Claude hiểu
 
 mcp = FastMCP("study-mcp-server")  # khởi tạo server, tên này client sẽ thấy khi kết nối
 
 
-@mcp.tool()
-def word_count(text: str) -> int:
-    """Count the number of words in the given text."""
+@mcp.tool(
+    name="word_count",
+    description="Count the number of words in the given text.",
+)
+def word_count(
     # text: str — đoạn văn bản cần đếm từ, do client (hoặc Claude) truyền vào khi gọi tool
+    text: str = Field(description="Text to count words in"),
+) -> int:
     return len(text.split())
 
 
