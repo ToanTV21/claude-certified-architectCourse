@@ -10,3 +10,6 @@
 - `04_parallelization_workflow.py` — Parallelization workflow: evaluate a part
   against multiple materials in parallel Claude calls, then aggregate into one
   final recommendation.
+- `05_environment_inspection_exercise.py` — Environment inspection: read-before-write
+  pattern — read a target file's current content first, then ask Claude to propose a
+  change that matches the existing structure/convention.
