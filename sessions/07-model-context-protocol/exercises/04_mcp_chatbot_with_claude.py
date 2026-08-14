@@ -50,6 +50,7 @@ def mcp_tool_to_claude_schema(tool) -> dict:
 
 async def main():
     user_query = "What is the contents of the deposition.md document?"  # bước 1: user query
+    print(f"[1] User query: {user_query!r}")
 
     server_params = StdioServerParameters(command=sys.executable, args=[SERVER_SCRIPT])
 
@@ -57,20 +58,27 @@ async def main():
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()  # bắt tay MCP handshake
+            print("[2] MCP handshake done -> server sẵn sàng, cần tools trước khi gọi Claude")
 
             # --- bước 2-3: MCP client gửi ListToolsRequest, nhận ListToolsResult ---
             list_tools_result = await session.list_tools()
             claude_tools = [mcp_tool_to_claude_schema(t) for t in list_tools_result.tools]
+            print(
+                f"[3] ListToolsRequest -> ListToolsResult: "
+                f"{[t['name'] for t in claude_tools]}"
+            )
 
             messages = [{"role": "user", "content": user_query}]
 
             # --- bước 4: gọi Claude lần đầu, kèm theo query + danh sách tools ---
+            print("[4] Calling Claude (1st call) with query + tools...")
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=1024,
                 messages=messages,
                 tools=claude_tools,
             )
+            print(f"[4] Claude responded, stop_reason={response.stop_reason!r}")
 
             # --- bước 5: kiểm tra Claude có yêu cầu gọi tool không (stop_reason == "tool_use") ---
             if response.stop_reason == "tool_use":
@@ -81,14 +89,20 @@ async def main():
                 tool_use_block = next(
                     block for block in response.content if block.type == "tool_use"
                 )
+                print(
+                    f"[5] Claude requested tool_use: name={tool_use_block.name!r}, "
+                    f"input={tool_use_block.input!r}"
+                )
 
                 # --- bước 6: MCP client gửi CallToolRequest tới MCP server để thực thi ---
+                print("[6] Sending CallToolRequest to MCP server...")
                 tool_result = await session.call_tool(
                     tool_use_block.name, tool_use_block.input
                 )
 
                 # --- bước 7: kết quả (CallToolResult) đã có ở đây, lấy phần text đầu tiên ---
                 result_text = tool_result.content[0].text
+                print(f"[7] CallToolResult received: {result_text!r}")
 
                 # --- bước 8: gửi tool_result về Claude trong 1 follow-up message ---
                 messages.append(
@@ -103,6 +117,7 @@ async def main():
                         ],
                     }
                 )
+                print("[8] Sending tool_result back to Claude (follow-up call)...")
 
                 response = client.messages.create(
                     model=MODEL,
@@ -110,12 +125,14 @@ async def main():
                     messages=messages,
                     tools=claude_tools,
                 )
+            else:
+                print("[5] Claude did not request a tool (stop_reason != 'tool_use')")
 
             # --- bước 9: in câu trả lời cuối cùng của Claude cho user ---
             final_text = "".join(
                 block.text for block in response.content if block.type == "text"
             )
-            print("Claude:", final_text)
+            print(f"[9] Final answer -> Claude: {final_text}")
 
 
 if __name__ == "__main__":
