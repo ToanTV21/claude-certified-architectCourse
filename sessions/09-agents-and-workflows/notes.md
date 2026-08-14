@@ -100,6 +100,10 @@ lập** — task cần Claude cân nhắc nhiều tiêu chí, so sánh nhiều l
 đụng tới nhiều domain chuyên môn khác nhau. Điều kiện quan trọng: mỗi sub-task phải hoạt
 động độc lập được và đóng góp 1 phần phân tích riêng biệt cho quyết định cuối.
 
+**Sơ đồ kiến trúc** (slide gốc): `User Task` → chia thành nhiều `Parallelizable Sub-Task`
+chạy song song → gộp lại ở 1 `Aggregator` duy nhất để ra kết quả cuối.
+![Parallelization workflow architecture](images/parallelization_workflow_architecture.png)
+
 ### 5. Chaining workflows
 **Chaining workflow** chia 1 task lớn, phức tạp thành nhiều **subtask nhỏ, tuần tự**
 (sequential) — mỗi subtask do 1 call Claude riêng đảm nhiệm, subtask sau dùng output của
@@ -141,6 +145,11 @@ nghiệp), Claude càng dễ bỏ sót 1-2 constraint dù đã liệt kê rõ r�
 **Khi nào dùng chaining:** task phức tạp có nhiều constraint cùng lúc; Claude hay "quên"
 vài constraint khi prompt quá dài; cần xử lý/validate output giữa các bước (có thể bằng
 code thường, không cần LLM); muốn mỗi lần gọi Claude chỉ tập trung 1 việc, dễ debug hơn.
+
+**Sơ đồ kiến trúc** (slide gốc): `Input` → `Processing Task #1` → `Processing Task #2` →
+`Processing Task #3` → `Output` — mỗi task là 1 bước xử lý tuần tự, không parallelizable
+được (khác với Parallelization ở mục 4).
+![Chaining workflow architecture](images/chaining_workflow_architecture.png)
 
 ### 6. Routing workflows
 **Routing workflow** giải quyết vấn đề: các loại request khác nhau cần cách xử lý khác
@@ -185,6 +194,34 @@ cận riêng; có thể định nghĩa rõ ràng category bao phủ hết use ca
 Claude làm tin cậy được; lợi ích xử lý chuyên biệt lớn hơn overhead của bước routing thêm.
 Áp dụng nhiều trong customer service bot (route theo billing/technical/refund...), content
 generation tool.
+
+**Sơ đồ kiến trúc** (slide gốc): `User Input` → `Router` (1 call Claude để categorize) →
+chọn đúng 1 trong nhiều nhánh `Workflow, Prompt, Tools, etc` — *user input chỉ được gửi vào
+đúng 1 nhánh*, không phát cho tất cả.
+![Routing workflow architecture](images/routing_workflow_architecture.png)
+
+**Ví dụ output thực tế — cùng 1 script generation task, khác category → khác hẳn văn
+phong.** Với cùng độ dài/cấu trúc timing (0-3s, 3-8s, 8-13s...), topic "Programming" (route
+vào Educational) ra giọng giải thích khái niệm rõ ràng ("Mastering Python functions is
+fundamental..."), còn topic "Surfing" (route vào Entertainment) ra giọng giàu cảm xúc, kể
+chuyện trải nghiệm ("Ever wondered what it feels like to ride the ocean?...") — minh chứng
+routing giúp mỗi output bám đúng tông giọng category, thứ 1 prompt chung khó làm được nhất
+quán cho cả 2 topic khác biệt.
+![Routing example output — Programming vs Surfing script](images/routing_example_programming_vs_surfing.png)
+
+**Bảng prompt template đầy đủ cho từng genre** (dùng ở bước Specialized processing, thay
+`[TOPIC]` bằng topic thật của user):
+
+| Genre | Script Generation Prompt |
+|-------|---------------------------|
+| **Entertainment** | Write a high-energy, culturally-relevant script about [TOPIC] using trendy language and engaging hooks that balance entertainment value with insider insights. |
+| **Educational** | Develop a clear, engaging script about [TOPIC] that transforms complex information into digestible insights using relatable examples and thought-provoking questions. |
+| **Comedy** | Create a sharp, unexpected script about [TOPIC] that subverts expectations with clever observations, perfect timing, and relatable scenarios that build to satisfying punchlines. |
+| **Personal vlog** | Write an authentic, intimate script about [TOPIC] that balances vulnerability with relatable insights, using conversational storytelling that invites viewers into your personal experience. |
+| **Reviews** | Create a decisive, experience-based script about [TOPIC] highlighting key strengths and weaknesses with specific examples that support your clear final verdict. |
+| **Storytelling** | Write an immersive script about [TOPIC] using vivid details and strategic pacing that builds emotional connection through authentic storytelling. |
+
+![Routing prompt template table per genre](images/routing_prompt_template_table.png)
 
 ### 7. Environment inspection
 **Vấn đề cốt lõi:** Claude hoạt động "mù" (blind) — nó không tự động biết kết quả hành
@@ -244,6 +281,13 @@ lý được nhiều loại task đa dạng — không cần code riêng cho t�
 reliability và cost kém ổn định hơn workflow (đã nêu ở phần so sánh Benefits/Downsides tại
 mục 1).
 
+**Sơ đồ kiến trúc** (slide gốc): cấp cho Claude 1 `Goal` + 1 bộ `Tools` **đủ trừu tượng**
+(reasonably abstract) → Claude tự formulate 1 `Plan` (có thể nói ra hoặc không) để dùng tool
+đó đạt goal. Mục tiêu khi thiết kế agent là hoàn thành task **reliably** và
+**economically** — 2 tiêu chí này thường khó đạt hơn với agent so với workflow. Đổi lại,
+tính linh hoạt của agent cho phép UX linh hoạt hơn nhiều.
+![Agents architecture — Goal + Tools -> Claude -> Plan](images/agents_architecture_goal_tools_plan.png)
+
 **Sức mạnh thật sự nằm ở việc Claude tự kết hợp tool đơn giản theo cách không lường trước.**
 Ví dụ bộ tool datetime cơ bản:
 - `get_current_datetime` — lấy ngày giờ hiện tại
@@ -267,6 +311,21 @@ Claude Code minh hoạ rõ nguyên tắc này: nó chỉ có tool generic, linh 
 hay "install dependencies". Claude tự nghĩ ra cách dùng tool cơ bản để hoàn thành các task
 phức tạp đó → nhờ tính trừu tượng này, agent xử lý được vô số tình huống lập trình mà
 developer chưa từng lường trước lúc thiết kế.
+
+**Đối chiếu cụ thể — tool Claude Code CÓ vs KHÔNG CÓ:**
+- **Có** (generic, abstract): `Bash` (run commands), `Glob` (find files), `Grep` (search
+  file contents), `LS` (list files), `Read` (read a file), `Write` (create a file), `Edit`
+  (edit a file), `WebFetch` (fetch a URL)
+- **Không có** (hyper-specialized, dễ bị bỏ sót use case): `Refactor` ("refactor the given
+  file, extracting reusable code where possible"), `Run Tests` ("discover and execute tests
+  in the project"), `Create Migration` ("creates a database migration with the specified
+  schema"), `Install Dependencies` ("installs all dependencies for the project based on the
+  environment")
+
+→ Claude vẫn làm được refactor/run test/tạo migration/install dependency — chỉ là **tự kết
+hợp** các tool generic ở trên (vd `Bash` để chạy `npm install`, `Read`+`Edit` để refactor)
+thay vì cần 1 tool riêng cho từng việc.
+![Tools should be abstract — Claude Code tool comparison](images/agents_tools_should_be_abstract.png)
 
 **Best practice — thiết kế tool để dễ combinable (kết hợp được với nhau).** Ví dụ agent
 tạo + đăng video social media có thể có bộ tool:
