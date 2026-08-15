@@ -14,6 +14,119 @@
 
 ---
 
+## 0. ĐỌC TRƯỚC KHI THI — Cheat sheet: common mistakes & cách chọn đáp án đúng nhanh
+
+> Ghi lại từ pattern lặp đi lặp lại xuyên suốt cả 162 câu (không phải chỉ 1-2 câu riêng lẻ) — nếu
+> chỉ còn 1-2 ngày, đọc kỹ phần 0 này trước, sau đó lướt nhanh domain còn yếu ở phần 3. Member
+> confirm đề site này sát đề thật (~lệch 4 câu) → thuộc phần 0 gần như là thuộc "khung ra quyết
+> định" của cả bài thi, áp dụng được cho câu chưa từng gặp.
+
+### 0.1 — 6 nguyên tắc ra quyết định lặp lại nhiều nhất
+
+1. **Sửa tại tầng CẤU TRÚC (schema/tool design/hook/code) luôn thắng sửa tại tầng LỜI NÓI (prompt
+   instruction/few-shot/mô tả tool).** Bất cứ khi nào đề có 1 lựa chọn "tách tool/sửa schema/thêm
+   hook/tool tự enforce" và 1 lựa chọn "thêm few-shot/nhấn mạnh prompt/dặn dò kỹ hơn" cho CÙNG 1
+   vấn đề → chọn lựa chọn cấu trúc. Few-shot/prompt chỉ đúng khi vấn đề thật sự là "hành vi mơ hồ
+   cần dạy ví dụ" (format chuẩn hoá, phân biệt trivial/meaningful...), không phải khi vấn đề là
+   "ràng buộc bắt buộc/compliance/param required" (khi đó cần schema hoặc hook, few-shot chỉ là
+   xác suất không phải đảm bảo). Ví dụ: Q2/Q25/Q98/Q141 (tách tool), Q56/Q103/Q145 (hook/enforce
+   tại tool), Q158/Q21/Q29/Q94/Q126/Q23 (đúng chỗ dùng few-shot vì bài toán là "dạy hành vi").
+2. **Không bao giờ tự động "sửa"/"điều chỉnh"/"suy đoán" số liệu quan trọng (tài chính, y tế) một
+   cách âm thầm.** Thấy cụm "automatically adjusts/corrects the values" cho invoice/refund/số tiền
+   → gần như luôn SAI. Đáp án đúng thường là: thêm field song song (`calculated_X` vs `stated_X`)
+   + flag cho human review, HOẶC retry-with-error-feedback để model tự sửa có căn cứ. (Q17/18/33/
+   61/71/75).
+3. **Hội thoại NGẮN (vài nghìn token, còn xa giới hạn) mà vẫn "quên"/"trôi hướng dẫn" → nguyên
+   nhân luôn là LỖI ENGINEERING CỤ THỂ (không gửi lại `messages`/`system` mỗi lần gọi — API
+   stateless), KHÔNG BAO GIỜ là "attention tự nhiên suy yếu theo turn" hay "response tích luỹ làm
+   loãng ảnh hưởng" (2 kiểu diễn đạt mơ hồ, không kiểm chứng được — thấy là loại ngay).
+   Ngược lại, hội thoại THẬT SỰ DÀI (hàng chục nghìn token, gần chạm limit) mới áp dụng kỹ thuật
+   context management thật (xem 0.3). (Q58/77/78/99 — dấu hiệu nhận biết: đề cho số token cụ thể,
+   luôn so sánh với 200K).
+4. **Không escalate/không action ngay chỉ vì tín hiệu cảm xúc (giận dữ, dấu chấm than, lặp câu
+   hỏi).** Escalation/quyết định quan trọng phải dựa TIÊU CHÍ TƯỜNG MINH: khách hàng yêu cầu người
+   thật rõ ràng, HOẶC vượt quyền hạn/policy exception, HOẶC agent không tiến triển được. Nhưng nếu
+   agent ĐÃ đủ thông tin để giải quyết NGAY thì ưu tiên đề nghị giải quyết trước, không escalate
+   vội (đối lập Q49 vs Q55 — đọc kỹ agent đã điều tra/có giải pháp trong tay chưa trước khi chọn).
+5. **Khi khối lượng công việc/phân phối query đang "evolving"/"diverse"/không đoán trước được** →
+   không chọn classifier train sẵn, không chọn rule cố định/pattern-based routing → chọn "để
+   model/coordinator tự đánh giá động mỗi lần". Rule cứng chỉ đúng khi đề mô tả rõ 2 nhóm tách biệt
+   ổn định, phân loại rẻ và chính xác (Q44/64 vs các câu routing cố định khác — đọc kỹ đề có nói
+   "evolving"/"discover new applications" không).
+6. **Tách hay gộp tool — nhìn đúng NGUYÊN NHÂN:** tham số bắt buộc khác nhau theo operation → TÁCH
+   tool (Q2/25/98/141). Hai tool ngữ nghĩa chồng lấn/agent nhầm lẫn giữa 2 tool na ná nhau → GỘP
+   tool (Q139/140). Đề luôn cho từ khoá "structurally eliminates" khi đáp án đúng là gộp/tách tại
+   schema — không phải tách sub-agent hay thêm few-shot phân biệt.
+
+### 0.2 — Bẫy đáp án SAI hay gặp nhất (loại ngay khi thấy, trừ khi đề có lý do đặc biệt)
+
+- ❌ "Clear context / start fresh / restart session" khi vấn đề là cần GIỮ hiểu biết đã tích luỹ —
+  hầu như luôn sai trừ khi đề nói rõ hiểu biết cũ không còn giá trị. Đáp án đúng thường là: tóm
+  tắt + truyền tiếp, hoặc spawn subagent MỚI kèm summary, hoặc resume + báo cập nhật thay đổi.
+- ❌ "Train a classifier / build a rules engine / decision tree" cho việc phân loại đang thay đổi
+  liên tục — chọn "để model tự suy luận động" thay vào đó (xem nguyên tắc 5).
+- ❌ "Consolidate/merge tất cả server hoặc tool thành 1" để giải quyết vấn đề THIẾU VISIBILITY —
+  sai hướng, vấn đề là thiếu giao diện khám phá nội dung (dùng MCP **Resources**, không phải gộp
+  server — Q110). Chỉ gộp tool đúng khi vấn đề là OVERLAP NGỮ NGHĨA giữa 2 tool cụ thể (Q139/140).
+- ❌ "Increase context window / upgrade model tier / lower temperature" như giải pháp chính cho
+  vấn đề THIẾT KẾ (schema/context-management/tool design) — đây luôn là distractor "né vấn đề
+  thật" trong bộ đề này, gần như không bao giờ là đáp án đúng.
+- ❌ Ép `tool_choice` cho **TOÀN BỘ pipeline/mọi lượt gọi** để đảm bảo thứ tự — sai, sẽ chặn luôn
+  các tool khác về sau. Chỉ ép cho ĐÚNG 1 lượt đầu tiên cần đảm bảo thứ tự (Q19/95).
+- ❌ Coi field `optional` (có thể bỏ hẳn) và **mảng rỗng hợp lệ** (field luôn có, có thể rỗng) là
+  một — 2 khái niệm khác nhau, đề hay test đúng chỗ này (Q149).
+- ❌ Bắt buộc field `required`/non-nullable để "ép" model luôn trả giá trị — làm TĂNG hallucination
+  chứ không giảm; nullable + instruction "trả null nếu nguồn không nêu" mới đúng (Q22).
+- ❌ Đưa raw confidence score/error message thô cho model tự diễn giải ngưỡng — nên TÍNH SẴN logic
+  ngưỡng ở tầng tool/backend (đã test) rồi trả kết quả đã phân loại (`requires_review`,
+  `retryable`, `errorCategory`...) cho model dùng trực tiếp (Q46/53/59/65/92/93/116/117/125).
+- ❌ Dựa vào lời văn prompt ("CRITICAL, MUST, NEVER", viết hoa nhấn mạnh) để đảm bảo compliance
+  cứng (ngưỡng tiền, threshold bắt buộc) — không bao giờ đủ tin cậy 100%; phải dùng hook
+  (`PreToolUse`) hoặc tool tự enforce logic nội bộ (Q56/103/145).
+
+### 0.3 — Bảng "thấy cụm từ này trong đề → nghĩ ngay pattern này"
+
+| Cụm từ / tình huống trong đề | Pattern cần nhớ |
+|---|---|
+| "in the first place" / "without introducing latency" / "without overcomplicating the pipeline" | Loại bỏ MỌI lựa chọn hậu xử lý/multi-pass/2nd LLM call — chọn sửa tại nguồn (CLAUDE.md docs, schema, few-shot dạy hành vi) |
+| Hội thoại dài, cần RECALL nhiều chủ đề/kết luận cũ đã đóng | Progressive summarization (tóm tắt cũ, giữ verbatim gần đây) |
+| Hội thoại dài, cần 1 giá trị hiện tại luôn ĐÚNG/MỚI NHẤT (preference, status) hay bị GHI ĐÈ | Structured state object cập nhật mỗi lần đổi, đưa vào mọi request |
+| Cần vài fact CỤ THỂ chính xác tuyệt đối xuyên suốt (dị ứng, ID, số liệu) + phần còn lại linh hoạt | Tách riêng structured "reference section"/"story bible" giữ cố định, chỉ tóm tắt phần còn lại |
+| RAG/tool-output tích luỹ đè context, hội thoại thì vẫn cần giữ | Sliding window RIÊNG cho RAG/tool result, giữ nguyên conversation history |
+| "structurally eliminates" | Đáp án đúng luôn ở tầng schema/tool design, không phải sub-agent/few-shot |
+| MCP tool trả lỗi: thiếu param bắt buộc | JSON-RPC protocol error |
+| MCP tool trả lỗi: business (404 not found, đã refund rồi...) hoặc hạ tầng (503) | Tool result với `isError: true` |
+| Task 2+ subagent việc ĐỘC LẬP nhau nhưng đang chạy tuần tự/chậm | Phát nhiều Task tool call trong CÙNG 1 response message (không cần async layer ngoài) |
+| Cần đảm bảo compliance/threshold tuyệt đối bất kể prompt | Hook (PreToolUse) hoặc logic enforce ngay trong tool, không phải prompt wording |
+| Task đơn giản, rõ ràng, 1 file/1 hàm | Direct execution |
+| Task phức tạp, nhiều file, breaking change, chưa rõ phạm vi ảnh hưởng | Plan mode trước khi implement |
+| Trích xuất dữ liệu tài chính/số liệu mà tổng không khớp | Field `calculated_X` song song `stated_X` + flag review — KHÔNG tự động điều chỉnh |
+| Sinh dữ liệu/test "low-value"/"trivial" cần giảm NGAY TỪ GỐC | Ghi rõ tiêu chuẩn + ví dụ vào CLAUDE.md, không lọc hậu kỳ |
+| `--resume <tên>` vs `--continue` vs `--session-id` | `--resume <name>` = đúng session theo tên; `--continue` = gần nhất; `--session-id` = đúng UUID |
+| `--system-prompt` vs `--append-system-prompt` | `--system-prompt` GHI ĐÈ (mất tool-use guidance mặc định); `--append-system-prompt` chỉ THÊM VÀO |
+
+### 0.4 — Lưu ý nhanh theo domain (bổ sung phần 0.1–0.3, không lặp lại)
+
+- **D1 (Orchestration):** Coordinator luôn là trung gian DUY NHẤT giữa các subagent — không có
+  giao tiếp trực tiếp/shared-memory tự động trừ khi đề nói rõ đã cấu hình. Debug/explore luôn
+  adaptive — không lập plan đầy đủ trước khi đọc file đầu tiên. `fork_session` khi cần đào sâu
+  SONG SONG nhiều hướng từ 1 điểm context chung.
+- **D2 (Tool/MCP):** Tool description nghèo → agent chọn sai tool dù tool đúng đã tồn tại — luôn
+  cân nhắc "mở rộng mô tả" trước khi nhảy sang giải pháp phức tạp hơn. Lỗi transient (timeout/503)
+  xử lý (retry) NGAY TRONG tool; lỗi business/non-transient trả thẳng cho agent kèm giải thích.
+- **D3 (Claude Code):** `/memory` là bước chẩn đoán ĐẦU TIÊN khi nghi ngờ CLAUDE.md không được
+  load đúng — đừng vội sửa nội dung rule trước khi xác nhận file có load hay không. Rules
+  (`.claude/rules/*.md` + YAML `paths:`) dùng khi cần guidance theo LOẠI FILE tự động; `@imports`
+  dùng khi maintainer/người viết tự quyết định cần include gì.
+- **D4 (Structured Output):** Tool use (`tool_use`/forced schema) luôn đáng tin hơn "prompt yêu
+  cầu output JSON rồi parse text". `system` prompt là top-level param, gửi lại MỖI LẦN gọi API,
+  không nằm trong `messages`, không phải "gửi 1 lần lúc đầu".
+- **D5 (Context/Reliability):** Luôn hỏi "hội thoại này ĐÃ dài chưa (so với 200K) hay còn ngắn?"
+  trước khi chọn giữa "lỗi engineering cụ thể" (ngắn) và "kỹ thuật quản lý context" (dài) — đây là
+  bẫy phổ biến nhất của domain này (xem nguyên tắc 3).
+
+---
+
 ## 1. Tổng quan
 
 - **162/162 câu** đã trích xuất đầy đủ + đối chiếu đáp án.
