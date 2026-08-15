@@ -75,6 +75,41 @@ schema, `required`).
 
 ---
 
+### [2026-08-15] Nguồn: mock exam (screenshot, domain 02 · Tool Design & MCP Integration)
+**Câu hỏi:** MCP server có tool `check_availability` gọi external calendar API. Test gặp 3 lỗi:
+(1) tool bị gọi với request thiếu tham số bắt buộc `user_email`; (2) calendar API trả 404 vì user
+không tồn tại trong hệ thống calendar; (3) calendar API trả 503 vì service tạm thời unavailable.
+Mỗi lỗi nên được report thế nào theo đúng thiết kế error handling của MCP?
+**Đáp án tôi chọn:** Report cả 3 như JSON-RPC protocol error.
+**Đáp án đúng:** Report lỗi (1) như JSON-RPC protocol error; report lỗi (2) và (3) như tool result
+với `isError: true`.
+**Vì sao sai / bài học rút ra:**
+1. *Đáp án đúng đúng ở chỗ nào?* — MCP phân biệt 2 tầng lỗi khác nhau: (a) **protocol-level
+   error** (JSON-RPC error object) khi chính request tới tool không hợp lệ về mặt kỹ thuật —
+   thiếu field bắt buộc, sai schema — đây là lỗi ở tầng giao thức, xảy ra TRƯỚC khi tool logic
+   chạy; (b) **tool execution error** (`isError: true` trong tool result) khi request hợp lệ,
+   tool đã chạy, nhưng bản thân domain logic/external call thất bại (user không tồn tại, service
+   tạm ngưng). 404 và 503 đều thuộc nhóm (b) vì request tới `check_availability` là hợp lệ —
+   chỉ là external API phản hồi lỗi nghiệp vụ/tạm thời. Phân biệt này giúp agent biết lỗi (1) là
+   lỗi CỦA CHÍNH NÓ (client gọi sai) cần sửa lại request, còn lỗi (2)/(3) là kết quả hợp lệ của
+   1 lần gọi tool đúng cú pháp — agent có thể retry (503, transient) hoặc báo user không tồn tại
+   (404, không nên retry) mà không nhầm là lỗi giao thức.
+2. *Đáp án tôi chọn sai ở chỗ nào?* — Gộp cả 3 vào JSON-RPC protocol error là xoá mất ranh giới
+   giữa "request sai cú pháp" và "request đúng nhưng domain/external call fail". Nếu 404/503 cũng
+   báo protocol error, agent (hoặc client) sẽ hiểu nhầm là chính request nó gửi có vấn đề kỹ
+   thuật, có thể sinh vòng lặp sửa request vô ích thay vì xử lý đúng theo bản chất lỗi (báo user
+   không tồn tại / retry sau backoff cho lỗi transient).
+3. *Nó thuộc meta-pattern nào?* — Gần nhất với **#5** (Lỗi cần trả về context có cấu trúc — phân
+   loại lỗi rõ ràng thay vì gộp chung một trạng thái lỗi) và Lĩnh vực 2 mục 2 (`isError`, phân
+   biệt transient/validation/business/permission). Đây là biến thể cụ thể hơn của #5 ở tầng MCP:
+   không chỉ "lỗi cần có cấu trúc" mà còn phải đúng **tầng** báo lỗi (protocol vs tool result) —
+   ranh giới quyết định bởi câu hỏi "request gửi tới tool có hợp lệ về cú pháp không?", không phải
+   "kết quả cuối có phải lỗi không".
+**Link liên quan:** [references.md#L153](references.md) (Chương 4 — MCP, `isError`); Lĩnh vực 2
+mục 2; meta-pattern #5.
+
+---
+
 ## 📍 PRE-TEST (baseline) — 2026-08-15 — guided.maithienan.com/certifications/ccar-f
 
 > Toàn bộ nội dung (tổng quan + chi tiết đầy đủ 27 câu sai) đã chuyển sang file riêng:
