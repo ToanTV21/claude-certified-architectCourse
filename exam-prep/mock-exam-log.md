@@ -24,7 +24,7 @@
 
 | Ngày | Bộ đề / Nguồn | D1 /16 | D2 /11 | D3 /12 | D4 /12 | D5 /9 | Tổng /60 | % | Thời gian | Ghi chú |
 |------|---------------|--------|--------|--------|--------|-------|----------|---|-----------|---------|
-| | | | | | | | | | | |
+| 2026-08-15 | guided.maithienan.com (PRE-TEST, baseline trước khi vào study-plan) | 6/9* | 8/14* | 10/15* | **4/13*** | 5/9* | 32-33/60 | 53-55% | không rõ | Xem phân tích đầy đủ + đối chiếu đáp án key trong wrong-answers.md. *Cột D1–D5 KHÔNG cùng mẫu số 16/11/12/12/9 — đề của site này ra sai lệch tỷ trọng domain thật (đếm theo nội dung câu hỏi: D1=9 D2=14 D3=15 D4=13 D5=9, thiếu hẳn D1 vốn nặng nhất 27%), nên số liệu chỉ tham khảo, không thay được 1 mock set sinh đúng chuẩn. D4 (Prompt Engineering) là domain yếu rõ rệt nhất — 31%. |
 
 <!-- Thêm dòng mới bên dưới. Với nguồn ngoài không chia theo domain, để trống các cột D1–D5 và chỉ ghi tổng + % -->
 
